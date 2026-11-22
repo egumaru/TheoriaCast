@@ -16,6 +16,10 @@ TheoriaCast 本体は開発中です。付属の作曲ツール Music を先行�
 - [Codex and Claude Code composition and editing skill](.agents/skills/theoriacast-music/SKILL.md)
 - [公式サイト / Official site](https://theoriacast.online/)
 
+## TheoriaCast.Contracts
+
+The shared C# data contracts for Unity and .NET are available as **org.theoriacast.contracts 1.0.0**. Unity と .NET の間でシーン、アクション、レンダラーの状態を交換するための共通型定義です。 [Installation and usage / 導入手順](src/TheoriaCast.Contracts/README.md)
+
 ### Build and test
 
 Use the .NET 10 SDK. The API uses the AIKernel 0.1.4 distributed hosting provider.

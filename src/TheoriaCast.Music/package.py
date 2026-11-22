@@ -93,6 +93,7 @@ def include_materials(app_dir, project):
         raise FileNotFoundError(skill / "SKILL.md")
     shutil.copytree(skill, app_dir / "skills/theoriacast-music", ignore=shutil.ignore_patterns("__pycache__", "*.pyc"))
     if project.endswith(".Api"):
+        shutil.copytree(MUSIC / "api-guide", app_dir / "api-guide")
         # These are TheoriaCast integration scripts; users provide the actual engines.
         (app_dir / "worker").mkdir(exist_ok=True)
         for name in ("configure.py", "legacy-idle.ps1", "receipt.py", "reference_generators.py",

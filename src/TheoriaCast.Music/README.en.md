@@ -6,6 +6,8 @@ Queue background music and songs for TheoriaCast, audition takes and edit them i
 
 ## Install the two applications
 
+[GPU setup guide, engine.json fields and templates](https://theoriacast.online/en/install/api/)
+
 1. On the Music GitHub Release, choose **TheoriaCast.Music.Api** for the GPU server and **TheoriaCast.Music.Atelier** for the browser computer. Each is available separately for Windows x64 (ZIP) and Linux x64 (tar.gz). Extract each archive into its own folder. The .NET runtime is included. You can verify each archive against the release’s SHA256SUMS.
 2. Install the NVIDIA driver on the GPU host and check that `nvidia-smi` lists your GPU. Install and test your chosen generation engine and model following the supplier’s instructions. Supply the engine, weights and their applicable licenses separately.
 3. In the API folder create `engine.json`. This example selects the supplied integration adapter for an existing ACE-Step installation. Replace the identifiers, paths and license with those of your installation. Use absolute paths, e.g. `C:/Music/venv/Scripts/python.exe` and `C:/Music/ffmpeg/bin/ffmpeg.exe` on Windows.

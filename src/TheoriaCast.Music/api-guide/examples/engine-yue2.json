@@ -1,0 +1,38 @@
+{
+  "model": "m-a-p/YuE2-3B",
+  "version": "REPLACE_WITH_INSTALLED_ENGINE_AND_WEIGHT_VERSION",
+  "license": "REPLACE_WITH_MODEL_LICENSE",
+  "model_version": {
+    "code_repository": "REPLACE_WITH_ENGINE_REPOSITORY_URL",
+    "code_revision": "REPLACE_WITH_ENGINE_COMMIT",
+    "local_patch_sha256": null
+  },
+  "components": [
+    {
+      "name": "YuE2-3B",
+      "role": "generator",
+      "source": "REPLACE_WITH_WEIGHT_SOURCE_URL",
+      "revision": "REPLACE_WITH_WEIGHT_COMMIT",
+      "license": "REPLACE_WITH_WEIGHT_LICENSE",
+      "license_evidence": "REPLACE_WITH_LICENSE_AT_WEIGHT_REVISION"
+    },
+    {
+      "name": "YuE2-Vae",
+      "role": "decoder",
+      "source": "REPLACE_WITH_WEIGHT_SOURCE_URL",
+      "revision": "REPLACE_WITH_WEIGHT_COMMIT",
+      "license": "REPLACE_WITH_WEIGHT_LICENSE",
+      "license_evidence": "REPLACE_WITH_LICENSE_AT_WEIGHT_REVISION"
+    }
+  ],
+  "types": [
+    "generate_vocal",
+    "regen_reading_fix"
+  ],
+  "python": "C:/Music/yue2/venv/Scripts/python.exe",
+  "weights": "C:/Music/models",
+  "ffmpeg": "C:/Music/tools/ffmpeg.exe",
+  "generator_module": "reference_generators",
+  "whisper": "C:/Music/whisper/whisper-cli.exe",
+  "whisper_model": "C:/Music/whisper/models/ggml-small.bin"
+}

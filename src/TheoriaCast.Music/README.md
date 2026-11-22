@@ -6,6 +6,8 @@ TheoriaCast の配信に使う BGM と歌を作る付属ツールです。GPU �
 
 ## ダウンロードとインストール
 
+[GPU 機の初期設定と engine.json の項目・ひな形](https://theoriacast.online/install/api/)
+
 1. GitHub Releases の Music リリースから、GPU 機には **TheoriaCast.Music.Api**、ブラウザを使う端末には **TheoriaCast.Music.Atelier** を選びます。各々 Windows x64 用 ZIP と Linux x64 用 tar.gz があります。両方を同じ PC に置くときも別フォルダーに展開します。.NET ランタイムは同梱しています。
 2. Windows は ZIP を展開します。Linux は `tar -xzf <アーカイブ名> -C <作成済みの展開先>` を使います。各アーカイブの SHA-256 はリリース付属の `SHA256SUMS` と照合できます。
 3. GPU 機に NVIDIA ドライバーを用意し、`nvidia-smi` で GPU が表示されることを確認します。利用する生成エンジンとモデルをその配布元の手順で別途インストールし、単体で生成できることを確認します。モデルの重み、第三者の作曲エンジン、その利用許諾は別途必要です。

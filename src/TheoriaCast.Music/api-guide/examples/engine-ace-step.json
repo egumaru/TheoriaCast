@@ -1,0 +1,29 @@
+{
+  "model": "ACE-Step/ACE-Step-v1-3.5B",
+  "version": "REPLACE_WITH_INSTALLED_ENGINE_AND_WEIGHT_VERSION",
+  "license": "REPLACE_WITH_MODEL_LICENSE",
+  "model_version": {
+    "code_repository": "REPLACE_WITH_ENGINE_REPOSITORY_URL",
+    "code_revision": "REPLACE_WITH_ENGINE_COMMIT",
+    "local_patch_sha256": null
+  },
+  "components": [
+    {
+      "name": "ACE-Step-v1-3.5B",
+      "role": "generator",
+      "source": "REPLACE_WITH_WEIGHT_SOURCE_URL",
+      "revision": "REPLACE_WITH_WEIGHT_COMMIT",
+      "license": "REPLACE_WITH_WEIGHT_LICENSE",
+      "license_evidence": "REPLACE_WITH_LICENSE_AT_WEIGHT_REVISION"
+    }
+  ],
+  "types": [
+    "generate_bgm",
+    "edit",
+    "mix"
+  ],
+  "python": "/opt/music/ace/venv/bin/python",
+  "weights": "/opt/music/ace/weights",
+  "ffmpeg": "/usr/bin/ffmpeg",
+  "generator_module": "reference_generators"
+}
