@@ -73,7 +73,7 @@ The API writes **connection.json** on startup. Transfer this file privately to t
 ## Compose, edit and reproduce
 
 - Put only singable lines in the lyrics field. Put performance directions in the prompt. Japanese reading substitutions apply to the entire sheet. The reference adapter transcribes and checks up to three vocal takes, reporting the outcome and outstanding differences.
-- Import or save prompt.md, lyrics.txt and score.abc individually. Save editable settings in composition.json or the materials together in a ZIP. **Draft a prompt with AI** prepares an Atelier consultation. Paste its request into Codex and preview the suggested prompt in the browser.
+- Import or save prompt.md, lyrics.txt and score.abc individually. Save editable settings in composition.json or the materials together in a ZIP. **Draft a prompt with AI** prepares an Atelier consultation. Paste its request into Codex or Claude Code and preview the suggested prompt in the browser.
 - Download generation.json from a generated take, import it and choose **Reproduce original take** to queue a verified replay. The renderer checks frozen arguments, seed and runtime. The server checks the master WAV hash. A mismatch fails the job. Keep the original WAV as the authoritative recording.
 - In **Edit music**, drag on the waveform to select a passage, audition or loop it, then queue a trim or replacement. For constant-tempo tracks, enter the tempo, beats per bar and first downbeat to snap to bars. Adjust caption times, vocal timing, fades or gain, or join two tracks with a crossfade. Edits generate new tracks.
 
@@ -83,13 +83,13 @@ Use `--node-config` to enable a worker on the API host. For another GPU machine,
 
 Workers check the shared lock, GPU activity, pause files and at least 8,192 MiB of available VRAM. Use the same lock and pause signals as any existing generation or verification runner. Configure a local `busy_command` when needed. Priority work interrupts a take and returns it to the queue. Worker controls are `worker <node.json> pause|resume|status|stop`. The API stores jobs in SQLite and recordings with their provenance under `生成音源/TheoriaCast/`. Atelier trusts other processes on its local computer.
 
-[Illustrated Atelier guide](https://theoriacast.online/guide/en/)
+[Illustrated Atelier guide](https://theoriacast.online/guide/en/) · [Revise lyrics and captions](https://theoriacast.online/guide/en/#lyrics) · [Download finished files](https://theoriacast.online/guide/en/#downloads)
 
 The illustrated user guide is also available offline from **User guide** in Atelier.
 
-## API and Codex
+## API, Codex and Claude Code
 
-Register the local Atelier with `codex mcp add theoriacast-music --url http://localhost:39395/mcp`. Copy the archive's `skills/theoriacast-music` directory into your project’s `.agents/skills/` for the composition and editing skill. Direct API clients use the address and bearer token from their connection descriptor.
+Register the local Atelier with `codex mcp add theoriacast-music --url http://localhost:39395/mcp`. Copy the archive's `skills/theoriacast-music` directory into your project’s `.agents/skills/` for the composition and editing skill. For Claude Code, copy the same skill folder into the project’s `.claude/skills/` and run `claude mcp add --transport http theoriacast-music http://localhost:39395/mcp` from that project. Follow the [consultation walkthrough](https://theoriacast.online/guide/en/#assistants) in either client. Direct API clients use the address and bearer token from their connection descriptor.
 
 | Method | Path |
 |---|---|

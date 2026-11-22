@@ -5,7 +5,7 @@ description: Compose music and revise generated tracks through the TheoriaCast.M
 
 # Compose and revise music
 
-Use the MCP server connected to the user's Atelier. Calls use the server selected in that Atelier. In the tool picker names may have the configured MCP server name as a prefix. Read the Japanese guide when working in Japanese. [日本語](references/ja.md)
+Use the MCP server connected to the user's Atelier. Codex and Claude Code share the tools and can answer the same GUI consultation. Calls use the server selected in that Atelier. In the tool picker names may have the configured MCP server name as a prefix. Read the Japanese guide when working in Japanese. [日本語](references/ja.md)
 
 ## Start from a draft
 
@@ -20,6 +20,14 @@ For a request to generate music directly, call `get_nodes`, then `submit_job`. J
 ```json
 {"spec":{"type":"generate_bgm","theme":"Opening a family photo album","style":"gentle piano and acoustic guitar","seconds":30,"priority":"interactive"}}
 ```
+
+For a lyric rewrite, read the consultation's current `draft.lyrics`. Return the complete revised lyrics in `changes.lyrics`, preserving the other lines, line breaks and language. For example, changing only the second line of “To the morning market / Let us walk along with the wind” gives:
+
+```json
+{"id":"REQUEST_ID","reply":"The shorter second line fits in one breath.","changes":{"lyrics":"To the morning market\nWalk with the wind"}}
+```
+
+For a finished recording, new sung words require a new vocal generation. Use the original composition settings and the revised lyric sheet. A pronunciation fix keeps the written lyrics and applies the supplied readings to matching text across the sheet. For subtitle-only edits, read the existing cues and send the complete desired cue list, including unchanged lines. The optional timing map moves the mixed voice and backing together.
 
 ## Follow and revise a take
 
@@ -37,5 +45,9 @@ Use `get_job({"id":"JOB_ID"})` for state and position. Queued jobs wait until a 
 | Mark as a favorite | `set_review` | `{"track":"ID","review":{"favorite":true}}` |
 
 Check source and donor durations first. Times are seconds. Map bar selections using the known tempo, beats per bar and first downbeat. Each render creates a new track. Return the new job ID and verify the resulting track. Set adoption only when requested; MCP decisions record Codex as reviewer.
+
+## Hand over finished files
+
+After `get_job` reports `done`, follow its `track` with `get_track`. Return the track ID and resolve its `audio` path against the listener's local Atelier (default `http://localhost:39395`). In Library, expand **Lyrics and settings** and choose **Save audio** for a WAV on the user's computer. For text or a recipe, offer the files actually listed in `provenance.materials`. **Save composition bundle** downloads the composition settings and available materials. Download the WAV separately when handing over a recording and its project. A completed edit or mix has its own track ID. [Illustrated download instructions](https://theoriacast.online/guide/en/#downloads)
 
 For exact reproduction, call `get_generation({"track":"ID"})` on a take with a frozen recipe. Pass the returned document intact to `replay_generation({"document":…})`. Verify `result.replay_verified` and `result.sha256` after completion. Changing an instruction, seed or score creates a variation. An older track, edit or mix may have no frozen generator recipe. Never describe a queued replay as a verified match.

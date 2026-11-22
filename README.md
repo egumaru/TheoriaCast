@@ -13,7 +13,7 @@ TheoriaCast 本体は開発中です。付属の作曲ツール Music を先行�
 - [English installation and user guide](src/TheoriaCast.Music/README.en.md)
 - [Windows / Linux releases](https://github.com/egumaru/TheoriaCast/releases)
 - [Review and verification / レビュー対応](src/TheoriaCast.Music/REVIEW.md)
-- [MCP composition and editing skill](.agents/skills/theoriacast-music/SKILL.md)
+- [Codex and Claude Code composition and editing skill](.agents/skills/theoriacast-music/SKILL.md)
 - [公式サイト / Official site](https://theoriacast.online/)
 
 ### Build and test

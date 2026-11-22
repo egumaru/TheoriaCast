@@ -74,7 +74,7 @@ python3 worker/configure.py A --root ./node --api http://127.0.0.1:39400 --lock 
 ## 作曲と修正
 
 - 歌詞は歌う行だけを書き、演奏の指示は「曲の指示書」に書きます。読み置換は全行に適用されます。参照歌唱アダプターは文字起こしと照合を最大3テイクまで行い、合否と残った箇所を返します。
-- 指示書（prompt.md）、歌詞（lyrics.txt）、ABC 楽譜（score.abc）を個別に読み込み・保存できます。composition.json は編集用の条件、ZIP は素材一式です。「AI と指示書を作る」は現在の下書きを Codex に共有する相談を作成します。依頼文を Codex に渡し、届いた変更案を画面で確認します。
+- 指示書（prompt.md）、歌詞（lyrics.txt）、ABC 楽譜（score.abc）を個別に読み込み・保存できます。composition.json は編集用の条件、ZIP は素材一式です。「AI と指示書を作る」は現在の下書きについて相談を作成します。依頼文を Codex または Claude Code に渡し、届いた変更案を画面で確認します。
 - 生成済みテイクから generation.json を保存して読み込み、「元テイクを再現」で改めて予約できます。確定した引数・シード・実行環境とマスター WAV の SHA-256 を照合します。モデル、実行環境、音声が一致しない場合は失敗として理由を返します。生成済み WAV は保管してください。
 - 「曲を直す」で波形をドラッグし、範囲を試聴して切り取りや差し替えを予約します。一定テンポの曲は BPM、拍子、最初の小節位置を指定して小節に合わせられます。字幕時刻、歌と伴奏の位置、クロスフェード、個別音量も調整できます。結果は新しいトラックです。
 
@@ -84,13 +84,13 @@ API に同居させるワーカーは `--node-config` で明示します。別�
 
 ワーカーは空き VRAM 8,192 MiB 以上、共有ロック、GPU の使用状況、停止信号を確認します。既存の作業を優先するにはランナーと同じ `lock`、`pause_files`、必要に応じて `busy_command` を設定します。優先作業を検知すると実行中テイクを停止してキューに戻します。`worker <node.json> pause|resume|status|stop` で操作できます。API は SQLite と `生成音源/TheoriaCast/` に予約・音声・出自を保存します。Atelier の localhost は同じ端末のユーザーとプロセスを信頼する構成です。
 
-[画面で見る操作ガイド](https://theoriacast.online/guide/)
+[画面で見る操作ガイド](https://theoriacast.online/guide/) · [歌詞・字幕を直す](https://theoriacast.online/guide/#lyrics) · [完成したファイルを保存する](https://theoriacast.online/guide/#downloads)
 
 スクリーンショット付きの操作ガイドは、起動した Atelier の「使い方」からオフラインでも開けます。
 
-## API と Codex
+## API と Codex・Claude Code
 
-Atelier の MCP 接続先は `http://localhost:39395/mcp`。Codex では `codex mcp add theoriacast-music --url http://localhost:39395/mcp` で登録します。配布物の `skills/theoriacast-music` を作業プロジェクトの `.agents/skills/` に配置すると、作曲・編集の手順を呼び出せます。直接 API を使う場合は接続記述子の URL と利用トークンを使います。
+Atelier の MCP 接続先は `http://localhost:39395/mcp`。Codex では `codex mcp add theoriacast-music --url http://localhost:39395/mcp` で登録します。配布物の `skills/theoriacast-music` を作業プロジェクトの `.agents/skills/` に配置すると、作曲・編集の手順を呼び出せます。Claude Code では同じスキル一式をプロジェクトの `.claude/skills/` に置き、そこで `claude mcp add --transport http theoriacast-music http://localhost:39395/mcp` を実行します。[相談から歌詞の提案を受け取る](https://theoriacast.online/guide/#assistants)手順は両方で共通です。直接 API を使う場合は接続記述子の URL と利用トークンを使います。
 
 | Method | Path |
 |---|---|

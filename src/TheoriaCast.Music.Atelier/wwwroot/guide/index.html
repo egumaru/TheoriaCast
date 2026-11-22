@@ -1,11 +1,61 @@
 <!doctype html>
 <html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>音のアトリエ 操作ガイド | TheoriaCast.Music</title><meta name="description" content="初回の接続から、予約した曲を聴いて気になる部分を直すところまで、実際の画面に沿って進めます。画像を選ぶと原寸で表示できます。"><script src="guide.js"></script><link rel="stylesheet" href="guide.css"></head>
 <body><header><a href="/" class="home">TheoriaCast.Music</a><a href="en/" hreflang="en" lang="en">English</a><button type="button" class="theme" hidden aria-label="ダークテーマ" data-light="ライト" data-dark="ダーク"></button></header>
-<main><h1>音のアトリエ 操作ガイド</h1><p>初回の接続から、予約した曲を聴いて気になる部分を直すところまで、実際の画面に沿って進めます。画像を選ぶと原寸で表示できます。</p><nav aria-label="目次"><a href="#connect">接続ファイルを読み込む</a><a href="#compose">テーマを決めて作曲を予約する</a><a href="#queue">予約の順番と進み具合を見る</a><a href="#library">曲の棚で試聴・採用する</a><a href="#waveform">波形で区間を選んで直す</a><a href="#materials">素材・歌の読み・Codex を使う</a></nav>
+<main><h1>音のアトリエ 操作ガイド</h1><p>初回の接続から、予約した曲を聴いて気になる部分を直すところまで、実際の画面に沿って進めます。画像を選ぶと原寸で表示できます。</p><nav aria-label="目次"><a href="#connect">接続ファイルを読み込む</a><a href="#compose">テーマを決めて作曲を予約する</a><a href="#queue">予約の順番と進み具合を見る</a><a href="#library">曲の棚で試聴・採用する</a><a href="#waveform">波形で区間を選んで直す</a><a href="#lyrics">歌詞・読み・字幕を調整する</a><a href="#downloads">作ったファイルを保存する</a><a href="#assistants">Codex・Claude Code と相談する</a><a href="#materials">作曲素材を読み込む・保存する</a></nav>
 <section id="connect"><h2>1. 接続ファイルを読み込む</h2><ol><li>利用端末で Atelier を起動し、ブラウザで http://localhost:39395/ を開きます。</li><li>「接続ファイルを読み込む」を押し、GPU 機の API が作成した connection.json を選びます。ファイルには利用トークンが入っています。</li><li>サーバー名が「接続中」になるのを待ちます。別のファイルを追加すると接続先を切り替えられます。</li></ol><figure><a href="images/ja-connect.webp"><img fetchpriority="high" width="1056" height="352" src="images/ja-connect.webp" alt="初回の接続画面。GPU サーバーから受け取ったファイルをここで選びます。"></a><figcaption>初回の接続画面。GPU サーバーから受け取ったファイルをここで選びます。</figcaption></figure></section>
 <section id="compose"><h2>2. テーマを決めて作曲を予約する</h2><ol><li>「曲を作る」で「楽器だけ」または「歌のある曲」を選び、テーマ、雰囲気、長さを入力します。</li><li>歌詞欄には歌う行だけを記入します。「ピアノで始める」などの演奏指示は「曲の指示書」に書きます。</li><li>「作曲を予約」を押します。音源を作るのは、予約を引き受けた機器が空いたときです。</li></ol><figure><a href="images/ja-compose.webp"><img loading="lazy" width="1056" height="956" src="images/ja-compose.webp" alt="作曲画面。テーマや楽器の希望を入力して予約を追加します。"></a><figcaption>作曲画面。テーマや楽器の希望を入力して予約を追加します。</figcaption></figure></section>
 <section id="queue"><h2>3. 予約の順番と進み具合を見る</h2><ol><li>「予約と履歴」で対象のタイトルを探します。「順番待ち」の間は、その機器での順番を確認できます。</li><li>「作っています」になると、担当の機器や進み具合が表示されます。必要な場合は「取り消す」で中止できます。</li><li>「できました」になったら「試聴する」を選びます。歌の場合は、歌詞との照合結果や聞き直したい箇所も確認します。</li></ol><figure><a href="images/ja-queue.webp"><img loading="lazy" width="1056" height="601" src="images/ja-queue.webp" alt="予約と履歴。機器が空くまで待っている曲と、完成した曲を確認できます。"></a><figcaption>予約と履歴。機器が空くまで待っている曲と、完成した曲を確認できます。</figcaption></figure></section>
 <section id="library"><h2>4. 曲の棚で試聴・採用する</h2><ol><li>「曲の棚」で再生ボタンを押して聴きます。</li><li>使う曲は「採用」、あとで探しやすくしたい曲は「お気に入り」にします。「歌詞・作った条件」で歌詞や実際の長さを確認できます。</li><li>「この曲を直す」で編集画面へ進みます。「もう一度作る」は同じ条件で別の予約を作ります。</li></ol><figure><a href="images/ja-library.webp"><img loading="lazy" width="1056" height="506" src="images/ja-library.webp" alt="曲の棚。再生、採用、お気に入り、修正の入口が各トラックにあります。"></a><figcaption>曲の棚。再生、採用、お気に入り、修正の入口が各トラックにあります。</figcaption></figure></section>
 <section id="waveform"><h2>5. 波形で区間を選んで直す</h2><ol><li>「切り取り・音の出入り」では、波形をタップして再生位置を決め、ドラッグで範囲を選びます。開始・終了の秒数を直接入力することもできます。</li><li>「選んだ範囲を聴く」で境界を確認します。「選択範囲を拡大」や「範囲を繰り返す」で細かく調整できます。一定テンポなら「小節に合わせる」を開きます。</li><li>部分差し替えは「一部分を別の曲に差し替える」を選び、差し替え元の曲と開始秒を指定します。「修正を予約」で新しいトラックを作ります。</li></ol><figure><a href="images/ja-waveform.webp"><img loading="lazy" width="1056" height="825" src="images/ja-waveform.webp" alt="波形編集。選択範囲と開始・終了位置を見ながら、再生して調整できます。"></a><figcaption>波形編集。選択範囲と開始・終了位置を見ながら、再生して調整できます。</figcaption></figure></section>
-<section id="materials"><h2>素材・歌の読み・Codex を使う</h2><ul><li>「歌詞・楽譜・作曲セット」から prompt.md、lyrics.txt、score.abc、composition.json、ZIP を読み込み・保存できます。</li><li>生成済みの generation.json を読み込んで「元テイクを再現」を選ぶと、最終引数で生成し、元の WAV と SHA-256 を照合します。</li><li>読み誤りには「ことばの読みを直す」で「市場 → しじょう」のように指定します。複数の曲を連結するときは「曲をつなぐ・重ねる」で各曲の音量とクロスフェード秒数を設定します。</li><li>「AI と指示書を作る」または「Codex と一緒に考える」で、現在の下書きを共有できます。依頼文を Codex に渡し、届いた提案を画面で確認・適用してください。</li></ul></section></main>
-<footer><a href="https://theoriacast.online/install/">GPU サーバーと Atelier のインストール</a></footer></body></html>
+<section id="lyrics">
+<h2>6. 歌詞を直す</h2>
+<h3>歌う言葉を変える</h3>
+<p>たとえば「風と歩いていこう」が一息で歌いにくければ、2行目だけを「風と歩こう」に短くできます。「曲を作る」で「歌のある曲」を選び、「歌いたい言葉」に歌う行を一行ずつ入れます。</p>
+<pre><code>朝の市場へ
+風と歩こう</code></pre>
+<p>「ピアノで始める」「2行目は静かに」などは「曲の指示書」に書きます。<code>[Intro]</code> などの見出しも歌詞欄から外します。すでにある歌を直すときは、元の曲の「歌詞・作った条件」で「作曲セットを保存」を押し、「曲を作る」→「歌詞・楽譜・作曲セット」でその ZIP を読み込みます。「歌いたい言葉」を直して「作曲を予約」すると別のテイクができます。手元の歌詞だけを差し替える場合は、同じ画面で UTF-8 の <code>lyrics.txt</code> を読み込めます。</p>
+<h3>同じ言葉の読み方を直す</h3>
+<p>歌詞の表記を「市場」のまま「しじょう」と歌わせる例です。初回の予約なら「歌詞・楽譜・作曲セット」の「読み置換」に、完成した歌なら「曲の棚」→「この曲を直す」→「ことばの読みを直す」の「ことばと読み方」に、次のように一組ずつ入力します。</p>
+<pre><code>市場 → しじょう</code></pre>
+<p>置換は歌詞全体の同じ文字列に適用されます。「市場へ」だけを変えたいときは <code>市場へ → しじょうへ</code> のように前後の言葉を含めます。「修正を予約」したら「予約と履歴」で照合回数と「要確認」の内容を見ます。標準の歌唱ワーカーは最大3テイクまで照合します。新旧テイクを聴き比べ、意図した発音になった方を採用してください。</p>
+<h3>字幕が早いとき、歌の入りが早いとき</h3>
+<p>「この曲を直す」→「歌詞を出す時間を直す」を開きます。字幕だけを直すときは「歌詞と表示時間」に <code>開始秒 | 終了秒 | 歌詞</code> の順で、残したい字幕行をすべて入力します。下の例では再生開始から3.5秒で2行目に切り替わります。下段の「歌と伴奏を一緒に動かす」は空欄にします。</p>
+<pre><code>0 | 3.5 | 朝の市場へ
+3.5 | 8 | 風と歩こう</code></pre>
+<figure><a href="images/ja-timing.webp"><img loading="lazy" width="1056" height="799" src="images/ja-timing.webp" alt="「歌詞と表示時間」に2行を入力した例。下段は、歌と伴奏も動かすときに使います。"></a><figcaption>「歌詞と表示時間」に2行を入力した例。下段は、歌と伴奏も動かすときに使います。</figcaption></figure>
+<p>録音の4秒の位置にある歌い出しを4.5秒へ動かす場合は、下段に <code>4 | 4.5</code> と入力します。前の区間が伸びて、歌と伴奏が一緒に動きます。上段を空欄にすると元の字幕が引き継がれます。「修正を予約」し、完成した曲を再生して、声の入りと字幕の切り替わりを確認します。別の歌い方を使いたい場合は、新しいテイクを作り、歌と伴奏を含む区間ごと<a href="#waveform">波形で差し替え</a>ます。</p>
+</section>
+<section id="downloads"><h2>7. 作ったファイルを自分の端末に保存する</h2>
+<ol><li>「予約と履歴」で目的の曲が「できました」になったら「試聴する」を選びます。「曲の棚」から直接開くこともできます。</li>
+<li>曲名と再生音を確かめ、曲の下の<strong>「歌詞・作った条件」</strong>を開きます。<strong>「音声を保存」</strong>を押すと、そのテイクが <code>曲名.wav</code> としてブラウザを使っている端末にダウンロードされます。編集・合成後の音源は、修正版の曲で同じ操作をします。</li>
+<li>ブラウザのダウンロード履歴から「フォルダーに表示」を選ぶと実ファイルを開けます。保存先を尋ねられた場合は自分で選んだフォルダーを開いてください。クラウドの GPU で作った曲も同じ手順です。</li></ol>
+<figure><a href="images/ja-download.webp"><img loading="lazy" width="1056" height="373" src="images/ja-download.webp" alt="「曲の棚」で「歌詞・作った条件」を開いた状態。練習用の伴奏を例に、音声と作曲セットの保存先を示しています。"></a><figcaption>「曲の棚」で「歌詞・作った条件」を開いた状態。練習用の伴奏を例に、音声と作曲セットの保存先を示しています。</figcaption></figure>
+<h3>歌詞・指示書・再現用データも持ち出す</h3>
+<ul><li><strong>曲を聴く・動画で使う</strong>には WAV を保存します。</li>
+<li><strong>歌詞や指示書を編集する</strong>には、同じ欄の <code>lyrics.txt</code>（元の歌詞）、<code>prompt.md</code>（指示書）、<code>score.abc</code>（楽譜）を選びます。<code>singing.txt</code> があれば読み置換後の歌唱用テキストも確認できます。表示されるファイルはテイクによって異なります。</li>
+<li><strong>作曲の続きを別の端末で行う</strong>には「作曲セットを保存」で <code>composition.zip</code> を取得し、移動先の「歌詞・楽譜・作曲セット」で読み込みます。ZIP には作曲条件と素材が入ります。音源も必要なら WAV も保存してください。</li>
+<li><strong>元のテイクの再現を試す</strong>には、提供される曲で <code>generation.json</code> を保存し、読み込み後に「元テイクを再現」を選びます。生成後に元の WAV との照合結果を確認できます。</li></ul>
+<p>Codex や Claude Code から予約した場合も「曲の棚」は共通です。「完成したらトラック番号と、この端末で音声を開くリンクを返して」と頼めます。字幕ファイルがある曲では、同じ端末で <code>http://localhost:39395/tracks/トラック番号/captions</code> を開き、WebVTT 字幕として保存することもできます。別の端末では、その端末の Atelier で同じサーバーを選びます。</p>
+<details><summary>トラック番号から WAV を直接保存する</summary><p>Atelier を起動した端末で、保存先のフォルダーをターミナルで開きます。<code>TRACK_ID</code> を完成したトラック番号に、<code>my-take.wav</code> を希望のファイル名に置き換えます。Windows の例です。</p><pre><code>curl.exe --fail --output my-take.wav http://localhost:39395/tracks/TRACK_ID/audio</code></pre><p>Linux では先頭の <code>curl.exe</code> を <code>curl</code> にします。</p></details></section>
+<section id="assistants"><h2>8. Codex・Claude Code に歌詞の相談をする</h2>
+<p><code>SKILL.md</code> は、AI が作曲相談を読み、歌詞や指示書の提案を画面に返すための手順書です。MCP は、その AI が起動中の Atelier を操作する接続口です。利用する端末で Atelier を起動し、<code>connection.json</code> を読み込み、目的のサーバーを選んでから設定します。</p>
+<p>展開した Atelier 配布物の <code>skills/theoriacast-music/</code> をフォルダーごとコピーします。中の <code>SKILL.md</code> と <code>references/ja.md</code> の位置関係を保ちます。<a href="https://github.com/egumaru/TheoriaCast/tree/main/.agents/skills/theoriacast-music">GitHub でスキルの内容を読む</a></p>
+<h3>Codex を使う場合</h3>
+<ol><li>作業プロジェクト内に <code>.agents/skills/theoriacast-music/SKILL.md</code> がある状態にします。</li><li>同じ端末のターミナルで次のコマンドを実行し、そのプロジェクトで Codex の新しい会話を開きます。</li></ol>
+<pre><code>codex mcp add theoriacast-music --url http://localhost:39395/mcp
+codex mcp list</code></pre>
+<p>会話で <code>$theoriacast-music</code> を指定し、「接続中の作曲機器を確認して」と頼みます。<a href="https://developers.openai.com/codex/skills/">Codex のスキル</a> · <a href="https://developers.openai.com/codex/mcp/">MCP 接続</a></p>
+<h3>Claude Code を使う場合</h3>
+<ol><li>作業プロジェクト内に <code>.claude/skills/theoriacast-music/SKILL.md</code> がある状態にします。</li><li>そのプロジェクトのターミナルで次のコマンドを実行します。<code>Connected</code> を確認し、そこで Claude Code を開きます。</li></ol>
+<pre><code>claude mcp add --transport http theoriacast-music http://localhost:39395/mcp
+claude mcp get theoriacast-music</code></pre>
+<p>会話で <code>/theoriacast-music 接続中の作曲機器を確認して</code> と入力します。接続の状態は <code>/mcp</code> でも確認できます。<a href="https://code.claude.com/docs/en/skills">Claude Code のスキル</a> · <a href="https://code.claude.com/docs/en/mcp">MCP 接続</a></p>
+<h3>下書きに提案を受け取る（どちらも共通）</h3>
+<ol><li>Atelier で歌詞を入力し、<strong>「Codex と一緒に考える」</strong>を開きます。v0.1.0 では Claude Code を使うときもこの名前です。「2行目だけ一息で歌える長さにして。1行目はそのままで」と入力して「今の下書きで相談する」を押します。</li>
+<li>「依頼文をコピー」を押し、選んだ AI の会話に貼り付けます。相談番号が入った依頼文だけで足ります。接続ファイルとトークンは Atelier 側で管理します。</li>
+<li>Atelier に戻り、「相談時」と「提案」の歌詞を読み比べます。「この提案を下書きに使う」を押すと歌詞欄に反映され、さらに手で直せます。納得したら「作曲を予約」を押し、完成後は<a href="#downloads">音声を保存</a>します。</li></ol>
+<figure><a href="images/ja-suggestion.webp"><img loading="lazy" width="1056" height="469" src="images/ja-suggestion.webp" alt="「風と歩いていこう」を「風と歩こう」に短くした提案。適用前に、残す1行目も含めて確認できます。"></a><figcaption>「風と歩いていこう」を「風と歩こう」に短くした提案。適用前に、残す1行目も含めて確認できます。</figcaption></figure>
+<p>完成した歌の発音を直したいときは「このトラックの『市場』を『しじょう』に直して再生成し、予約番号を返して」とトラック番号を添えて頼めます。下書きへの提案と、実際に新しい録音を予約する依頼を使い分けられます。</p></section>
+
+<section id="materials"><h2>作曲素材を読み込む・保存する</h2><p>「曲を作る」の「歌詞・楽譜・作曲セット」で、<code>lyrics.txt</code>、<code>score.abc</code>、編集用の <code>composition.json</code>、または ZIP を読み込み・保存できます。<code>prompt.md</code> は「曲の指示書」の下の「指示書を保存」で書き出せます。</p><p>複数の曲を連結・重ね合わせするときは「曲をつなぐ・重ねる」で音量とクロスフェードを設定します。</p></section></main>
+<footer><p><a href="https://github.com/egumaru/TheoriaCast/releases/download/music-v0.1.0/TheoriaCast.Music.Atelier-guide-20261123.zip">改訂版のオフラインガイドとスキルを取得（ZIP）</a><br>v0.1.0 をお使いの場合は、ZIP を Atelier のフォルダーに展開してガイドを上書きし、「使い方」を開き直してください。</p><a href="https://theoriacast.online/install/">GPU サーバーと Atelier のインストール</a></footer></body></html>
