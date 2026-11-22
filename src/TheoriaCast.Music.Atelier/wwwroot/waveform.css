@@ -1,0 +1,46 @@
+.connecting nav, .connecting main { display: none; }
+#connections { max-width: 54rem; margin: 0 auto 1rem; }
+.wave-editor {
+  display: grid; gap: .85rem; min-width: 0; border: 1px solid #bdc8ba;
+  border-radius: .8rem; padding: clamp(.8rem, 2vw, 1.4rem); background: #f7f8f1;
+}
+.wave-title, .wave-view, .wave-transport, .wave-tools {
+  display: flex; flex-wrap: wrap; align-items: center; gap: .45rem;
+}
+.wave-title, .wave-view { justify-content: space-between; }
+.wave-title h3 { margin: 0; font-size: 1.18rem; }
+#waveClock, #waveLength, #waveView, .wave-bounds input { font-variant-numeric: tabular-nums; }
+#waveClock { font-size: .95rem; color: #435b4d; }
+.wave-stage { min-width: 0; overflow: hidden; border-radius: .55rem; background: #182e29; color: #e1eede; }
+#wave { display: block; width: 100%; height: clamp(10rem, 23vw, 13rem); touch-action: pan-y; cursor: crosshair; }
+#wave:focus-visible { outline: 3px solid #f5c779; outline-offset: -3px; }
+.wave-view { padding: .4rem .7rem; border-top: 1px solid #435b52; min-height: 2.6rem; }
+#waveView { font-size: .78rem; }
+.wave-view button { background: #29413a; color: #eff7ed; border-color: #61766b; padding: .28rem .55rem; font-size: .8rem; }
+.wave-stage #wavePanBox { display: flex; gap: .75rem; align-items: center; font-size: .8rem; padding: .1rem .75rem .55rem; }
+.wave-stage #wavePan { flex: 1; min-width: 0; width: auto; padding: 0; height: 1.7rem; accent-color: #efc777; }
+#waveHint { font-size: .82rem; margin: 0; }
+.wave-transport > label { margin: 0; font-size: .86rem; }
+.wave-transport > .wave-volume { display: flex; align-items: center; gap: .4rem; margin-left: auto; }
+.wave-volume #waveVolume { width: 5rem; padding: 0; height: 1.7rem; }
+#waveListen { background: #315640; color: #fff; border-color: #315640; }
+#waveStatus:empty { display: none; }
+#waveAudio { width: 100%; margin: 0; }
+.wave-selection { display: grid; grid-template-columns: 1fr minmax(6rem, auto); align-items: center; gap: 1rem; border-top: 1px solid #cbd4c5; padding-top: .8rem; }
+.wave-bounds { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: .75rem; }
+.wave-bounds > div { display: grid; gap: .3rem; }
+.wave-bounds button, .wave-editor > .wave-tools button { font-size: .82rem; padding: .35rem .48rem; }
+.wave-range { display: grid; gap: .1rem; text-align: right; }
+.wave-range span { font-size: .78rem; color: #526153; }
+.wave-range output { font-size: 1.15rem; font-weight: 600; }
+.wave-editor details { border-top: 1px solid #cbd4c5; padding-top: .5rem; }
+.wave-editor summary { cursor: pointer; }
+.wave-editor details .pair { margin: .5rem 0; }
+.wave-editor button:disabled { opacity: .48; cursor: default; }
+@media(max-width: 540px) {
+  .wave-selection { grid-template-columns: 1fr; gap: .45rem; }
+  .wave-range { display: flex; align-items: baseline; gap: .6rem; }
+  .wave-transport { gap: .4rem; }
+  .wave-transport button { padding: .5rem; font-size: .88rem; }
+  .wave-view { gap: .35rem; }
+}

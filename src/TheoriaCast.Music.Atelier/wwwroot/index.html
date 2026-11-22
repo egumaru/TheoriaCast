@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>TheoriaCast.Music.Atelier｜音のアトリエ</title><link rel="stylesheet" href="/studio.css"><link rel="stylesheet" href="/waveform.css"><script src="/i18n.js" defer></script><script src="/atelier.js" defer></script></head>
+<body class="connecting"><header><span class="mark" aria-hidden="true">♫</span><div><small>TheoriaCast.Music.Atelier</small><h1>音のアトリエ</h1></div><a id="userGuide" href="/guide/">使い方</a><select id="language" aria-label="Language / 言語"><option value="ja" lang="ja">日本語</option><option value="en" lang="en">English</option></select></header>
+<section id="connections" aria-label="接続先"><div id="serverRows"></div><label>接続ファイルを読み込む<input id="importServer" type="file" accept=".json,application/json"></label><p id="connectionNote" role="status">作曲サーバーから受け取った connection.json を選んでください。</p></section>
+<nav aria-label="画面"><button data-page="compose" aria-current="page">曲を作る</button><button data-page="history">予約と履歴</button><button data-page="library">曲の棚</button><button data-page="edit">曲を直す</button></nav><main>
+<div role="status" id="notice"></div>
+<section id="compose"><h2>どんな曲を作りますか？</h2><form id="composeForm"><fieldset><legend>曲の種類</legend><label><input type="radio" name="kind" value="generate_bgm" checked> 楽器だけ</label><label><input type="radio" name="kind" value="generate_vocal"> 歌のある曲</label></fieldset>
+<label>テーマ<input name="theme" required placeholder="雨上がりの庭を歩く朝"></label><label id="words" hidden>歌いたい言葉<textarea name="lyrics" rows="5" placeholder="歌う言葉だけを、行ごとに"></textarea></label>
+<div class="pair"><label>雰囲気<select name="style"><option value="warm acoustic guitar and piano">あたたかなアコースティック</option><option value="soft piano, slow and peaceful">しずかなピアノ</option><option value="upbeat bright Japanese pop">明るいポップス</option><option value="relaxed jazz trio with brushed drums">夜のジャズ</option></select></label>
+<label>長さ（秒）<input type="number" name="seconds" min="5" max="600" value="120" required></label></div><label id="shortsLabel" hidden><input type="checkbox" name="shorts"> 3分以内に収める</label>
+<details><summary>楽器や速さも選ぶ</summary><div class="pair"><label>入れたい楽器・演奏の希望<input name="instruments" placeholder="チェロとピアノ、間奏は短め"></label><label>曲の速さ（1分の拍数）<input name="bpm" type="number" min="30" max="300" placeholder="おまかせ"></label></div></details>
+<label>曲の指示書<textarea name="prompt_md" rows="4" maxlength="32768"></textarea></label>
+<div class="actions"><button type="button" id="askPrompt">AI と指示書を作る</button><button type="button" data-save="prompt.md">指示書を保存</button></div>
+<details id="materials"><summary>歌詞・楽譜・作曲セット</summary>
+<label>素材・作曲条件を読み込む<input type="file" id="importMaterial" accept=".md,.txt,.abc,.json,.zip"></label>
+<label id="scoreField">楽譜（ABC 形式）<textarea name="score_abc" rows="4" maxlength="262144"></textarea></label>
+<label>読み置換（1行に ことば → よみ）<textarea name="reading_rules" rows="2"></textarea></label>
+<label>再現用の番号<input name="seed" type="number" min="0" max="2147483647" step="1"></label>
+<div class="actions"><button type="button" data-save="lyrics.txt">歌詞を保存</button><button type="button" data-save="score.abc">楽譜を保存</button>
+<button type="button" data-save="composition.json">作曲条件を保存</button><button type="button" data-save="composition.zip">作曲セットを保存</button></div>
+<div id="replayBox" hidden><p>元テイクの確定引数で再生成し、完成音声を照合します。</p><button type="button" id="replayTake">元テイクを再現</button></div></details>
+<p id="materialsStatus" role="status"></p>
+<label id="alternate" hidden><input type="checkbox" name="alternate"> いつもの歌用機器の代わりに、もう一台で作る</label><p>予約した曲は、家の機器が空いたときに作ります。</p><button class="primary">作曲を予約</button></form>
+<details id="studioHelp"><summary>Codex と一緒に考える</summary>
+<form id="questionForm"><label>相談したいこと<textarea name="question" rows="2" maxlength="3000" required placeholder="この歌詞の最後に、家族で口ずさめる一行を足したい"></textarea></label><button>今の下書きで相談する</button></form>
+<div id="studioStatus" role="status"></div><div id="studioPreview"></div></details></section>
+<section id="history" hidden><h2>予約と履歴</h2><div id="jobs"></div></section>
+<section id="library" hidden><h2>曲の棚</h2><div id="tracks"></div><h3>作品で使う曲</h3><form id="workForm"><label>作品名<input name="name" required></label><label>曲<select data-tracks name="track" required></select></label><button>この曲に差し替える</button></form><div id="works"></div></section>
+<section id="edit" hidden><h2>曲を直す</h2><label>したいこと<select id="editMode"><option value="trim">切り取り・音の出入り</option><option value="replace">一部分を別の曲に差し替える</option><option value="timing">歌詞を出す時間を直す</option><option value="reading">ことばの読みを直す</option><option value="mix">曲をつなぐ・重ねる</option></select></label>
+<form id="editForm"><label>曲<select data-tracks name="source" required></select></label>
+<div data-mode="trim replace" class="wave-editor" aria-labelledby="waveTitle" role="region">
+<div class="wave-title"><h3 id="waveTitle">波形で編集</h3><span id="waveClock" aria-label="再生位置と曲の長さ">0:00.00 / —</span></div>
+<div class="wave-stage">
+<canvas id="wave" width="720" height="170" tabindex="0" role="slider" aria-label="波形上の再生位置" aria-valuemin="0" aria-valuemax="0" aria-valuenow="0" aria-describedby="waveHint"></canvas>
+<div class="wave-view"><span id="waveView">曲全体</span><div class="wave-tools">
+<button type="button" id="waveZoom" disabled>選択範囲を拡大</button><button type="button" id="waveFit" disabled>全体表示</button></div></div>
+<label id="wavePanBox" hidden>表示位置<input id="wavePan" type="range" min="0" max="0" step="any" value="0"></label></div>
+<p id="waveHint">タップで再生位置を移動、ドラッグで範囲を選択。左右キーでも位置を動かせます。</p>
+<div class="wave-transport"><button type="button" id="wavePlay" disabled>ここから再生</button>
+<button type="button" id="waveListen" disabled>選んだ範囲を聴く</button>
+<label><input type="checkbox" id="waveLoop"> 範囲を繰り返す</label>
+<label class="wave-volume">試聴音量<input id="waveVolume" type="range" min="0" max="100" step="1" value="100"></label></div>
+<p id="waveStatus" role="status"></p><audio id="waveAudio" controls hidden preload="none" aria-label="編集する曲の試聴"></audio>
+<div class="wave-selection"><div class="wave-bounds">
+<div><label>開始（秒）<input name="start" type="number" min="0" step="any" value="0"></label><button type="button" id="waveMarkStart" disabled>再生位置を開始に</button></div>
+<div><label>終了（秒）<input name="end" type="number" min="0" step="any" placeholder="曲の終わり"></label><button type="button" id="waveMarkEnd" disabled>再生位置を終了に</button></div>
+</div><div class="wave-range"><span>選択の長さ</span><output id="waveLength">—</output></div></div>
+<div class="wave-tools"><button type="button" id="waveUndo" disabled>選択を元に戻す</button><button type="button" id="waveReset" disabled>曲全体を選ぶ</button></div>
+<details><summary>小節に合わせる</summary><p>一定の速さの曲に使えます。最初の小節が始まる秒数を合わせてください。</p><div class="pair">
+<label>1分の拍数<input id="waveBpm" type="number" min="30" max="300" step="any" placeholder="例 120"></label>
+<label>拍子<select id="waveMeter"><option value="4">4拍子</option><option value="3">3拍子</option><option value="2">2拍子</option></select></label>
+<label>最初の小節の開始（秒）<input id="waveOffset" type="number" min="0" step=".001" value="0"></label></div>
+<label><input type="checkbox" id="waveSnap"> 波形で選ぶ両端を小節に合わせる</label></details>
+</div>
+<div data-mode="trim" class="pair"><label>少しずつ大きく（秒）<input name="fade_in" value="0" min="0" step=".01" type="number"></label><label>少しずつ小さく（秒）<input name="fade_out" value="0" min="0" step=".01" type="number"></label></div>
+<div data-mode="replace" hidden><label>差し替えに使う曲<select data-tracks name="replacement" required></select></label>
+<label>差し替えに使う曲の開始（秒）<input name="replacement_start" type="number" min="0" step="any" value="0" required></label><p>選んだ範囲と同じ長さを使います。</p></div>
+<div data-mode="timing" hidden><label>歌詞と表示時間<textarea name="cues" rows="5" placeholder="0 | 3.5 | 朝がきた&#10;3.5 | 8 | 窓をあけよう"></textarea></label><p>各行に「開始秒 | 終了秒 | 歌詞」を入力します。空欄なら元の字幕を引き継ぎます。</p><label>歌と伴奏を一緒に動かす（任意）<textarea name="timing" rows="2" placeholder="3 | 3.5"></textarea></label><p>動かしたい位置ごとに「元の秒 | 動かす先の秒」を入力します。</p></div>
+<div data-mode="reading" hidden><label>ことばと読み方<textarea name="readings" rows="4" placeholder="市場 → しじょう"></textarea></label></div>
+<div data-mode="mix" hidden><label>最初の曲の音量（%）<input type="number" name="gain" min="0" max="400" value="100"></label><div id="extra"></div><button type="button" id="more">曲を追加</button><div class="pair"><label>合わせ方<select name="mixmode"><option value="join">順番につなぐ</option><option value="layer">同時に重ねる</option></select></label><label>つなぎ目を重ねる長さ（秒）<input name="crossfade" type="number" min="0" step=".01" value="1"></label></div></div><button class="primary">修正を予約</button></form></section>
+<aside><h3>作曲に使う機器</h3><div id="nodes">確認しています…</div></aside></main></body></html>

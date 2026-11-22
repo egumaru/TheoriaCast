@@ -1,0 +1,7 @@
+<Solution>
+  <Project Path="src/TheoriaCast.Music/TheoriaCast.Music.csproj" />
+  <Project Path="src/TheoriaCast.Music.Api/TheoriaCast.Music.Api.csproj" />
+  <Project Path="src/TheoriaCast.Music.Atelier/TheoriaCast.Music.Atelier.csproj" />
+  <Project Path="src/TheoriaCast.Music.Mcp/TheoriaCast.Music.Mcp.csproj" />
+  <Project Path="tests/TheoriaCast.Music.Tests/TheoriaCast.Music.Tests.csproj" />
+</Solution>

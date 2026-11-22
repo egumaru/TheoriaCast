@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+  <PropertyGroup><TargetFramework>net10.0</TargetFramework></PropertyGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="TheoriaCast.Music.Tests" />
+    <ProjectReference Include="../TheoriaCast.Music/TheoriaCast.Music.csproj" />
+    <ProjectReference Include="../TheoriaCast.Music.Mcp/TheoriaCast.Music.Mcp.csproj" />
+    <PackageReference Include="AIKernel.Hosting" Version="[0.1.4]" />
+    <PackageReference Include="AIKernel.Providers.Distributed" Version="[0.1.4]" />
+    <PackageReference Include="Microsoft.Data.Sqlite" Version="10.0.8" />
+    <PackageReference Include="SQLitePCLRaw.bundle_e_sqlite3" Version="3.0.3" />
+    <None Include="../TheoriaCast.Music/service/*.service" Link="service/%(Filename)%(Extension)" CopyToPublishDirectory="PreserveNewest" />
+  </ItemGroup>
+</Project>

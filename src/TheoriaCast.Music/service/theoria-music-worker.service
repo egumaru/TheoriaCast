@@ -1,0 +1,16 @@
+[Unit]
+Description=TheoriaCast.Music GPU worker
+After=theoria-music-api.service
+
+[Service]
+WorkingDirectory=%h/theoria-music
+EnvironmentFile=-%h/theoria-music/worker.env
+ExecStart=%h/theoria-music/host/TheoriaCast.Music.Api worker %h/theoria-music/node-A.json run
+Nice=10
+Environment=OMP_NUM_THREADS=2
+Environment=MKL_NUM_THREADS=2
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=default.target

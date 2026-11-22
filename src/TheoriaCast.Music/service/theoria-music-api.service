@@ -1,0 +1,13 @@
+[Unit]
+Description=TheoriaCast family music library
+After=network-online.target
+
+[Service]
+WorkingDirectory=%h/theoria-music/host
+EnvironmentFile=%h/theoria-music/host.env
+ExecStart=%h/theoria-music/host/TheoriaCast.Music.Api
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=default.target
