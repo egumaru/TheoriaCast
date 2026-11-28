@@ -1,0 +1,15 @@
+#projectMix fieldset{min-width:0;margin:0;padding:clamp(.9rem,2vw,1.5rem);border:1px solid var(--line,#c8c1b4);border-radius:.7rem}
+#projectMix legend{font-size:1.15rem;font-weight:700;padding-inline:.4rem}
+#projectMix .pm-line,#projectMix .pm-knobs,#projectMix .pm-switches,#pmResult{display:flex;flex-wrap:wrap;align-items:end;gap:.65rem 1rem;margin:.6rem 0}
+#projectMix .pm-line label,#projectMix .pm-knobs label{display:grid;gap:.25rem;min-width:0}
+#projectMix .pm-line label:first-child{flex:1 1 16rem}
+#projectMix select,#projectMix input{max-width:100%;min-width:0}
+#projectMix .pm-lane{display:grid;grid-template-columns:minmax(12rem,1.1fr) minmax(19rem,1.7fr) minmax(10rem,.9fr);align-items:center;gap:1rem;border-top:1px solid var(--line,#c8c1b4);padding:.6rem 0}
+#projectMix .pm-lane h3{margin:0;overflow-wrap:anywhere;font-size:1rem}
+#projectMix .pm-knobs{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));align-items:end}
+#projectMix .pm-switches{align-items:center}
+#projectMix .pm-switches label{display:inline-flex;align-items:center;gap:.25rem;white-space:nowrap}
+#projectMix .pm-switches input{width:auto}
+#pmRevisions,#quickMix{margin-block:1rem}#pmRevisions summary,#quickMix summary{cursor:pointer;font-weight:650}
+#pmResult{align-items:center}#pmResult audio{max-width:100%}
+@media(max-width:900px){#projectMix .pm-lane{grid-template-columns:1fr;gap:0}#projectMix .pm-line label:first-child{flex-basis:100%}}

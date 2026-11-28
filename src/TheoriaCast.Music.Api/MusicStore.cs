@@ -9,9 +9,10 @@ public sealed partial class MusicStore : IMusicLibrary
     public readonly string Root;
     private readonly string connection;
     private readonly IReadOnlyDictionary<string,string[]> capabilities;
-    public MusicStore(string root, IReadOnlyDictionary<string,string[]>? capabilities=null)
+    public MusicStore(string root, IReadOnlyDictionary<string,string[]>? capabilities=null, CreatorAudio? creatorAudio=null)
     {
         Root = Path.GetFullPath(root);
+        creator=creatorAudio;
         this.capabilities=capabilities??new Dictionary<string,string[]>();
         Directory.CreateDirectory(Root);
         Delivery.CleanPartialFiles(new DirectoryInfo(Path.Combine(Root,"partial")));
@@ -26,6 +27,9 @@ public sealed partial class MusicStore : IMusicLibrary
             CREATE TABLE IF NOT EXISTS tracks(id TEXT PRIMARY KEY, title TEXT, folder TEXT, origin TEXT,
               status TEXT DEFAULT 'pending', favorite INTEGER DEFAULT 0);
             CREATE TABLE IF NOT EXISTS nodes(id TEXT PRIMARY KEY, report TEXT, seen INTEGER);
+            CREATE TABLE IF NOT EXISTS creator_exports(id TEXT PRIMARY KEY,track TEXT NOT NULL,sha TEXT NOT NULL,
+              request TEXT NOT NULL,preset TEXT,state TEXT NOT NULL,created TEXT NOT NULL,error TEXT,recipe TEXT,model TEXT);
+            CREATE INDEX IF NOT EXISTS creator_export_tracks ON creator_exports(track);
             CREATE TABLE IF NOT EXISTS works(name TEXT PRIMARY KEY, track TEXT NOT NULL);
             CREATE TABLE IF NOT EXISTS pending_exports(track TEXT PRIMARY KEY);
             CREATE TABLE IF NOT EXISTS consultations(
@@ -230,6 +234,8 @@ public sealed partial class MusicStore : IMusicLibrary
         {
             var track=Read(db,"SELECT * FROM tracks WHERE id=$p0",ToTrack,id).SingleOrDefault() ?? throw new KeyNotFoundException();
             string status=r.status??track.status;
+            string? project=(string?)track.provenance["mix_project"]?["project"];
+            if(project!=null && status=="adopted") RestoreAdoptedAudio(track);
             bool favorite=r.favorite??track.favorite;
             var review=track.provenance["review"]?.DeepClone() ?? new JsonObject();
             if(r.status!=null || review["status"]==null)
@@ -242,6 +248,7 @@ public sealed partial class MusicStore : IMusicLibrary
             track.provenance["review"]=review;
             Run(db,"UPDATE tracks SET status=$p0,favorite=$p1,origin=$p2 WHERE id=$p3",status,favorite,track.provenance.ToJsonString(),id);
             Run(db,"INSERT OR IGNORE INTO pending_exports VALUES($p0)",id);
+            if(project!=null) TrimMixAudio(db,project);
             tx.Commit();
         }
         FlushReviews();

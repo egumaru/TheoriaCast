@@ -34,6 +34,21 @@ public sealed class MusicTools : IMcpToolProvider
         return JsonSerializer.SerializeToElement(await function.InvokeAsync(args, ct), JsonSerializerOptions.Web);
     }
 
+    [DisplayName("mix_projects"),Description("Versioned shelf mixes. Actions list, create(manifest), get, save, snapshot, render, history, rollback(revision), regenerate(revision). Clip actions place_clip, move_clip, trim_clip, fade_clip, loop_clip, delete_clip take clip {lane,id,...}. place_clip source {take,short_recipe or loop_job optional}, 48000 frames/sec. DSP actions add_dsp, set_dsp, move_dsp, delete_dsp take dsp {lane,id,type?,parameters?,index?}. Types gain_pan, hpf, eq, compressor, limiter, reverb. The lane_mixer uses lane gain and pan. Mutations use project and expected head. Poll get_export for recipe.analysis (peak_dbfs, integrated_lufs, clipped_samples). Outputs are pending.")]
+    public object MixProjects(MixProjectCommand input)=>store.MixProjects(input);
+    [DisplayName("stage_track_audio"),Description("Stage up to 384 KiB of WAV bytes (base64). Pass returned SHA-256 values in file order to import_recording. Chunks expire after one hour of inactivity.")]
+    public Task<StagedChunk> StageAudio(AudioChunk chunk,CancellationToken cancellationToken)
+        =>store.StageAudio(chunk,cancellationToken);
+    [DisplayName("import_recording"),Description("Import an ordinary WAV using a title and ordered SHA-256 chunk IDs from stage_track_audio. Returns the shelf track ID.")]
+    public Task<ImportedTrack> ImportRecording(RecordingImport input,CancellationToken cancellationToken)=>store.ImportRecording(input,cancellationToken);
+    [DisplayName("tune_loop"),Description("Tune loop edges and crossfade duration from stereo samples near the requested range. Pass the returned start, end and crossfade_ms to export_track with kind loop.")]
+    public Task<TunedLoop> TuneLoop(LoopSuggestion request,CancellationToken cancellationToken)=>store.TuneLoop(request,cancellationToken);
+    [DisplayName("get_export"),Description("Read the state of an export job and its output recipe and download path.")]
+    public ExportJob ExportJob(string id)=>store.GetExport(id);
+    [DisplayName("export_track"),Description("Render a tuned loop from a shelf take. Use kind loop and loop {start,end,crossfade_ms}, then poll get_export.")]
+    public ExportJob ExportTrack(CreatorExport request)=>store.Export(request);
+    [DisplayName("get_music_versions"),Description("Identify the connected shelf and its DTM API release.")]
+    public object MixVersion()=>store.MixVersion();
     [DisplayName("list_studio_requests"),Description("Find unanswered requests from people using the composition GUI. Includes the draft as shared and the person's question. Use this for assistance with an open screen.")]
     public List<Consultation> StudioRequests()=>store.OpenConsultations();
     [DisplayName("get_studio_request"),Description("Read one composition GUI request, its draft, and whether the person applied or dismissed your suggestion.")]
