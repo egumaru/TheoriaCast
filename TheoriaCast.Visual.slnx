@@ -1,0 +1,7 @@
+<Solution>
+  <Project Path="src/TheoriaCast.Visual/TheoriaCast.Visual.csproj" />
+  <Project Path="src/TheoriaCast.Visual.Api/TheoriaCast.Visual.Api.csproj" />
+  <Project Path="src/TheoriaCast.Visual.Atelier/TheoriaCast.Visual.Atelier.csproj" />
+  <Project Path="src/TheoriaCast.Visual.Mcp/TheoriaCast.Visual.Mcp.csproj" />
+  <Project Path="tests/TheoriaCast.Visual.UnitTests/TheoriaCast.Visual.UnitTests.csproj" />
+</Solution>

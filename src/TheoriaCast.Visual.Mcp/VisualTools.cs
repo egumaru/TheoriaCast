@@ -77,6 +77,10 @@ public sealed class VisualTools : IMcpToolProvider
     [DisplayName("visual_get_asset"), Description("Inspect an asset by ID on the selected server, including provenance and recipe ID.")]
     public VisualAsset Asset(string id) => library.Asset(id);
 
+    [DisplayName("visual_read_image"), Description("Read PNG or JPEG bytes for an asset reference. Start at offset 0, request up to 393216 bytes, append decoded bytes through totalBytes, and verify the SHA-256.")]
+    public Task<VisualImageChunk> ReadImage(AssetRef reference, long offset, int count, CancellationToken cancellationToken) =>
+        library.ReadImageChunk(reference, offset, count, cancellationToken);
+
     [DisplayName("visual_estimate_batch"), Description("Estimate time and compute resources for an edit batch before queueing it.")]
     public Task<ResourceEstimate> Estimate(EditBatch request, CancellationToken cancellationToken) => library.Estimate(request, cancellationToken);
 

@@ -45,9 +45,10 @@ internal sealed partial class VisualProcessing
         if (AutoInspectMode == "off") AutoInspectMode = null;
     }
 
-    public ProcessingEngine Engine(EditSettings settings, string hardware, string? inspectionVersion = null)
+    public ProcessingEngine Engine(EditSettings settings, string hardware, string? inspectionVersion = null,
+        bool normalizeJpeg = true)
     {
-        var engine = EditRecipes.Engine(settings, hardware, inspectionVersion);
+        var engine = EditRecipes.Engine(settings, hardware, inspectionVersion, normalizeJpeg);
         if (settings.InspectionMode != "cosmos") return engine;
         if (!HasCosmos) throw new VisualConflict("固定済みの Cosmos 3 Edge モデルが登録されていません。");
         return engine with
@@ -65,15 +66,17 @@ internal sealed partial class VisualProcessing
 
     public async Task<VisualInspection> Inspect(VisualRecipe recipe, byte[] bytes, VisualRecipe? source, CancellationToken ct)
     {
-        if (!EditRecipes.Matches(recipe.Engine, Engine(recipe.Settings, "cpu", recipe.Engine.Version), recipe.Settings))
+        var normalizeJpeg = EditRecipes.NormalizesJpeg(recipe.Engine);
+        if (!EditRecipes.Matches(recipe.Engine, Engine(recipe.Settings, "cpu", recipe.Engine.Version, normalizeJpeg), recipe.Settings))
             throw new VisualConflict("登録済みの検品モデルと固定レシピが一致しません。");
         var detailed = recipe.Engine.Version == EditRecipes.InspectionEngineVersion;
-        var (tags, flags) = PixelInspection(bytes, source?.Settings, detailed);
+        using var decoded = VisualImages.Decode(bytes, normalizeJpeg);
+        var (tags, flags) = PixelInspection(decoded, source?.Settings, detailed);
         string[] providerTags = [];
         ModelLicense? license = null;
         if (recipe.Settings.InspectionMode == "cosmos")
         {
-            providerTags = (await cosmos!.Value.TagAsync(bytes, ct)).ToArray();
+            providerTags = (await cosmos!.Value.TagAsync(VisualImages.ProviderInput(bytes, decoded, normalizeJpeg), ct)).ToArray();
             tags.AddRange(providerTags.SelectMany(tag => new[] { tag }.Concat(tag.Split(' ', StringSplitOptions.RemoveEmptyEntries)))
                 .Select(tag => JapaneseTags.GetValueOrDefault(tag)).OfType<string>());
             license = new(CosmosModel, recipe.Engine.Models[CosmosModel], "OpenMDW-1.1",
@@ -96,9 +99,8 @@ internal sealed partial class VisualProcessing
         ["space suit"] = "宇宙服", ["helmet"] = "ヘルメット", ["building"] = "建物"
     };
 
-    private static (List<string> Tags, InspectionFlag[] Flags) PixelInspection(byte[] bytes, EditSettings? source, bool detailed)
+    private static (List<string> Tags, InspectionFlag[] Flags) PixelInspection(Mat decoded, EditSettings? source, bool detailed)
     {
-        using var decoded = VisualImages.Decode(bytes);
         using var bgra = VisualImages.ToBgra(decoded);
         using var image = new Mat();
         var scale = Math.Min(1, 512d / Math.Max(bgra.Width, bgra.Height));

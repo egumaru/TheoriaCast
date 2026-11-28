@@ -3,6 +3,7 @@
 import argparse
 import contextlib
 import hashlib
+from io import BytesIO
 import json
 import os
 from pathlib import Path
@@ -211,6 +212,7 @@ def cpu_checks(server, photo, matting):
 
     replay = server.finish(server.post("/recipes/replay", {"recipeId": source_recipe_id}, 202))
     assert replay["items"][0]["recipeId"] == source_recipe_id
+    assert replay["items"][0]["output"]["sha256"] == output["sha256"]
     change = {"parameter": "strength", "value": 0.4}
     diff = server.finish(server.mcp("replay_recipe", request={"recipeId": source_recipe_id, "change": change}), via_mcp=True)
     varied = server.get("/recipes/" + diff["items"][0]["recipeId"])
@@ -234,17 +236,44 @@ def cpu_checks(server, photo, matting):
     resized = server.get("/assets/" + crop["items"][0]["output"]["assetId"])
     assert (resized["width"], resized["height"]) == (360, 640)
     if matting:
-        for parameters in [{"background": "transparent"}, {"background": "solid", "color": "#103040"},
-                           {"background": "image", "backgroundAsset": refs[1]}]:
-            background = server.finish(server.post("/jobs", {"settings": {"operation": "background", **parameters},
-                                                             "inputs": [refs[0]]}, 202))
-            png = image(server, background["items"][0]["output"])
-            assert png[25] == 6
-            assert "birefnet-lite-512.onnx" in recipe_packet(png)["engine"]["models"]
+        background_checks(server, refs[0])
     print("CPU: MCP import/batch/results, crop, set decisions/approval, unavailable references and exact/one-field replay.")
     if matting:
         print("CPU: pinned BiRefNet cutout, solid and user-image backgrounds.")
     return refs[0], set_id
+
+
+def background_checks(server, foreground):
+    from PIL import Image
+
+    def png_bytes(picture):
+        file = BytesIO()
+        picture.save(file, format="PNG")
+        return file.getvalue()
+
+    colors = [(16, 48, 64), (173, 53, 91)]
+    plate = png_bytes(Image.new("RGB", (32, 40), colors[1]))
+    plate_ref = server.post("/assets/import", {"name": "背景点検.png", "sha256": hashlib.sha256(plate).hexdigest(),
+                                             "bytes": b64encode(plate).decode()}, 201)["reference"]
+    pictures = []
+    for parameters in [{"background": "transparent"}, {"background": "solid", "color": "#103040"},
+                       {"background": "image", "backgroundAsset": plate_ref}]:
+        job = server.finish(server.post("/jobs", {"settings": {"operation": "background", **parameters},
+                                                 "inputs": [foreground]}, 202))
+        png = image(server, job["items"][0]["output"])
+        assert png[25] == 6
+        assert "birefnet-lite-512.onnx" in recipe_packet(png)["engine"]["models"]
+        pictures.append(Image.open(BytesIO(png)).convert("RGBA"))
+    cutout, *composited = pictures
+    alpha = cutout.getchannel("A").tobytes()
+    indices = [alpha.index(0), alpha.index(max(alpha)), next(i for i, value in enumerate(alpha) if 50 <= value <= 205)]
+    assert max(alpha) > 250
+    for i in indices:
+        pos = (i % cutout.width, i // cutout.width)
+        for color, result in zip(colors, composited):
+            top = cutout.crop((*pos, pos[0] + 1, pos[1] + 1))
+            expected = Image.alpha_composite(Image.new("RGBA", (1, 1), (*color, 255)), top).getpixel((0, 0))
+            assert all(abs(a - b) <= 1 for a, b in zip(result.getpixel(pos), expected)), (pos, color, expected)
 
 
 def browser_check(base, folder, photo, library_path):

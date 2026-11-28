@@ -5,6 +5,7 @@ namespace TheoriaCast.Visual.Api;
 internal sealed partial class VisualLibrary(VisualStore store, VisualProcessing processing, VisualPeers peers,
     IApplicationIdentity identity, VisualHost host) : IVisualLibrary
 {
+    private readonly VisualWorkQueue queue = new();
     private string ServerId => identity.ServerId;
 
     public StagedImageChunk Stage(ImageChunk chunk) => store.Stage(chunk);
@@ -49,7 +50,7 @@ internal sealed partial class VisualLibrary(VisualStore store, VisualProcessing 
     public VisualAsset[] Assets()
     {
         var state = store.Read();
-        var inspections = state.Jobs.SelectMany(job => job.Items).Select(item => item.Inspection)
+        var inspections = state.Jobs.SelectMany(job => job.Items ?? []).OfType<JobItem>().Select(item => item.Inspection)
             .OfType<VisualInspection>().GroupBy(result => result.Asset)
             .ToDictionary(results => results.Key, results => results.MaxBy(result => result.InspectedAt)!);
         return state.Assets.Reverse().Select(asset => asset with { Inspection = inspections.GetValueOrDefault(asset.Reference) }).ToArray();
@@ -67,7 +68,7 @@ internal sealed partial class VisualLibrary(VisualStore store, VisualProcessing 
     public VisualAsset Asset(string id)
     {
         var asset = StoredAsset(id);
-        var inspection = store.Read().Jobs.SelectMany(job => job.Items).Select(item => item.Inspection)
+        var inspection = store.Read().Jobs.SelectMany(job => job.Items ?? []).OfType<JobItem>().Select(item => item.Inspection)
             .OfType<VisualInspection>().Where(result => result.Asset == asset.Reference).MaxBy(result => result.InspectedAt);
         return asset with { Inspection = inspection };
     }
@@ -129,6 +130,34 @@ internal sealed partial class VisualLibrary(VisualStore store, VisualProcessing 
         else bytes = await peers.Image(reference, ct);
         if (VisualStore.Hash(bytes) != reference.Sha256) throw new InvalidDataException("参照素材の SHA-256 が一致しません。");
         return bytes;
+    }
+
+    public async Task<VisualImageChunk> ReadImageChunk(AssetRef reference, long offset, int count, CancellationToken ct)
+    {
+        reference = VisualStore.CheckRef(reference);
+        if (offset < 0 || count is < 1 or > VisualProtocol.ChunkBytes)
+            throw new ArgumentException("画像チャンクの位置またはサイズが範囲外です。");
+        if (reference.ServerId != ServerId)
+        {
+            var bytes = await ReadImage(reference, ct);
+            await using var remote = new MemoryStream(bytes, writable: false);
+            return await Read(remote, VisualImages.MediaType(bytes));
+        }
+        var asset = StoredAsset(reference.AssetId);
+        if (asset.Reference != reference) throw new VisualConflict("参照素材の SHA-256 が一致しません。");
+        await using var local = OpenImage(asset);
+        return await Read(local, asset.MediaType);
+
+        async Task<VisualImageChunk> Read(Stream stream, string mediaType)
+        {
+            var length = stream.Length;
+            if (length > VisualProtocol.MaxImageBytes) throw new InvalidDataException("入力画像が 16 MiB を超えました。");
+            if (offset > length) throw new ArgumentException("画像チャンクの位置が範囲外です。");
+            stream.Position = offset;
+            var chunk = new byte[(int)Math.Min(count, length - offset)];
+            await stream.ReadExactlyAsync(chunk, ct);
+            return new(offset, length, reference.Sha256, mediaType, chunk);
+        }
     }
 
     private ComputeResource LocalCpu() => new(ServerId, host.Name, "cpu", "OpenCV NPR", processing.HasMatting,
@@ -259,12 +288,13 @@ internal sealed partial class VisualLibrary(VisualStore store, VisualProcessing 
     {
         var original = Recipe(request.RecipeId);
         var hardware = original.Engine.Hardware;
-        var current = processing.Engine(original.Settings, hardware, original.Engine.Version);
+        var normalizeJpeg = EditRecipes.NormalizesJpeg(original.Engine);
+        var current = processing.Engine(original.Settings, hardware, original.Engine.Version, normalizeJpeg);
         if (!EditRecipes.Matches(original.Engine, current, original.Settings))
             throw new VisualConflict("固定レシピの処理環境を利用できません。");
         var defaults = EditRecipes.WithMattingDefaults(original.Settings);
         var settings = request.Change is null ? defaults : EditRecipes.Change(defaults, request.Change, hardware);
-        var engine = processing.Engine(settings, hardware, original.Engine.Version);
+        var engine = processing.Engine(settings, hardware, original.Engine.Version, normalizeJpeg);
         var runtime = settings.Operation == "resize" ? current with { Algorithm = engine.Algorithm } : current;
         if (!EditRecipes.SameRuntime(runtime, engine) && request.Change?.Parameter != "inspectionMode")
             throw new VisualConflict("変更した条件を同じモデルで処理できません。");
@@ -305,31 +335,59 @@ internal sealed partial class VisualLibrary(VisualStore store, VisualProcessing 
 
     public async Task<bool> RunNext(CancellationToken ct)
     {
-        var jobs = store.Read().Jobs;
-        var job = jobs.FirstOrDefault(candidate => candidate.Status == "running")
-            ?? jobs.FirstOrDefault(candidate => candidate.Status == "queued" && candidate.Kind != "automaticInspection")
-            ?? jobs.FirstOrDefault(candidate => candidate.Status == "queued");
-        if (job is null) return false;
-        if (job.Status == "queued")
+        var jobs = store.Read().Jobs.Where(job => VisualWorkQueue.Pending(job.Status)).ToArray();
+        var work = (from candidate in jobs
+                    from entry in (candidate.Items ?? []).Select((item, index) => (item, index))
+                    where entry.item is not null && VisualWorkQueue.Pending(entry.item.Status)
+                        && queue.CanRun($"{candidate.Id}/{entry.index}")
+                    orderby entry.item.Status == "running", candidate.Kind == "automaticInspection", candidate.CreatedAt
+                    select (Job: candidate, Index: entry.index)).FirstOrDefault();
+        if (work.Job is null)
         {
-            job = job with { Status = "running" };
-            SaveJob(job);
+            var stale = jobs.FirstOrDefault(job => (job.Items ?? []).All(item => item is null || !VisualWorkQueue.Pending(item.Status))
+                && queue.CanRun(job.Id));
+            if (stale is null) return false;
+            var items = ReadableItems(stale);
+            await queue.Process(stale.Id, 0, _ => { },
+                () => { SaveJob(stale with { Status = FinishedStatus(items), Items = items }); return Task.CompletedTask; },
+                _ => SaveJob(stale with { Status = "failed", Items = items }), "ジョブの完了状態を保存できません。",
+                host.Logger, ct);
+            return true;
         }
-        var index = Array.FindIndex(job.Items, item => item.Status == "queued");
+
+        var (job, index) = work;
         var item = job.Items[index];
-        var recipe = Recipe(item.RecipeId);
-        VisualAsset? asset = null;
-        VisualInspection? inspection = null;
         string? nodeId = null;
-        string? error = null;
-        try
+        void SaveItem(JobItem updated, VisualAsset? asset = null)
         {
+            var items = ReadableItems(job);
+            items[index] = updated;
+            var next = job with { Status = FinishedStatus(items), Items = items };
+            SaveJob(next, asset);
+            job = next;
+            item = updated;
+        }
+
+        await queue.Process($"{job.Id}/{index}", item.Attempts,
+            attempts => SaveItem(item with { Status = "running", Attempts = attempts }),
+            Run,
+            error => SaveItem(item with { Status = "failed", Error = error, FinishedAt = DateTimeOffset.UtcNow, ExecutedOn = nodeId }),
+            "画像処理に失敗しました。入力、固定モデル、画像処理ランタイムを確認してください。",
+            host.Logger, ct);
+        return true;
+
+        async Task Run()
+        {
+            var recipe = Recipe(item.RecipeId);
+            VisualAsset? asset = null;
+            VisualInspection? inspection = null;
             var node = await Choose(recipe.Settings, recipe.Engine.Hardware, ct,
                 allowLegacyMatting: EditRecipes.UsesLegacyImageProvider(recipe.Engine));
             nodeId = node.ServerId;
             if (recipe.Engine.Models.Count > 0)
             {
-                var candidate = processing.Engine(recipe.Settings, recipe.Engine.Hardware, recipe.Engine.Version);
+                var candidate = processing.Engine(recipe.Settings, recipe.Engine.Hardware, recipe.Engine.Version,
+                    EditRecipes.NormalizesJpeg(recipe.Engine));
                 if (!EditRecipes.Matches(recipe.Engine, candidate, recipe.Settings))
                     throw new VisualConflict("予約時に承認された固定モデルを確認できません。");
                 if (recipe.Settings.Operation == "background" && !node.MatteEdgeRefinement)
@@ -337,13 +395,7 @@ internal sealed partial class VisualLibrary(VisualStore store, VisualProcessing 
                 if (item.PinnedEngine is { } pinned && !EditRecipes.Matches(pinned, candidate, recipe.Settings))
                     throw new VisualConflict("予約時に承認された固定モデルを確認できません。");
                 if (item.PinnedEngine is null)
-                {
-                    item = item with { PinnedEngine = candidate };
-                    var claimed = job.Items.ToArray();
-                    claimed[index] = item;
-                    job = job with { Items = claimed };
-                    SaveJob(job);
-                }
+                    SaveItem(item with { PinnedEngine = candidate });
             }
             var input = await ReadImage(recipe.Input, ct);
             var source = await Resolve(recipe.Input, ct);
@@ -359,6 +411,7 @@ internal sealed partial class VisualLibrary(VisualStore store, VisualProcessing 
                 var png = nodeId == ServerId
                     ? await processing.Run(recipe, input, background, ct)
                     : await peers.Execute(node, new(recipe, input), ct);
+                if (!VisualImages.IsPng(png)) throw new InvalidDataException("処理結果に PNG の署名がありません。");
                 using var image = VisualImages.Decode(png);
                 var output = VisualImages.EmbedRecipe(png, recipe);
                 var hash = VisualStore.Hash(output);
@@ -369,26 +422,20 @@ internal sealed partial class VisualLibrary(VisualStore store, VisualProcessing 
                 asset = new(new(ServerId, VisualStore.NewId(), hash), name, "image/png", image.Width, image.Height,
                     DateTimeOffset.UtcNow, recipe.Id);
             }
+            ct.ThrowIfCancellationRequested();
+            SaveItem(item with { Status = "done", Output = asset?.Reference,
+                FinishedAt = DateTimeOffset.UtcNow, ExecutedOn = nodeId, Inspection = inspection }, asset);
         }
-        catch (Exception e) when (e is VisualConflict or InvalidDataException or ArgumentException)
-        {
-            error = e.Message;
-        }
-        catch (Exception e) when (e is not OperationCanceledException)
-        {
-            host.Logger.LogWarning("Visual job {Job} failed ({Type})", job.Id, e.GetType().Name);
-            error = "画像処理に失敗しました。入力、固定モデル、画像処理ランタイムを確認してください。";
-        }
-        ct.ThrowIfCancellationRequested();
-        var items = job.Items.ToArray();
-        items[index] = item with { Status = asset is null && inspection is null ? "failed" : "done", Output = asset?.Reference,
-            Error = error, FinishedAt = DateTimeOffset.UtcNow, ExecutedOn = nodeId, Inspection = inspection };
-        var status = items.Any(entry => entry.Status == "queued") ? "running"
+    }
+
+    private static string FinishedStatus(JobItem[] items) =>
+        items.Any(entry => VisualWorkQueue.Pending(entry.Status)) ? "running"
+            : items.Length == 0 ? "failed"
             : items.All(entry => entry.Status == "done") ? "done"
             : items.All(entry => entry.Status == "failed") ? "failed" : "partial";
-        SaveJob(job with { Status = status, Items = items }, asset);
-        return true;
-    }
+
+    private static JobItem[] ReadableItems(VisualJob job) => (job.Items ?? [])
+        .Select(item => item ?? new JobItem("", "failed", Error: "ジョブの項目を読み取れません。")).ToArray();
 
     private void SaveJob(VisualJob job, VisualAsset? asset = null) =>
         store.Update(s => (s with
@@ -489,20 +536,19 @@ internal sealed partial class VisualLibrary(VisualStore store, VisualProcessing 
 
 internal sealed record VisualHost(string Name, ILogger Logger);
 
-internal sealed class VisualQueue(VisualLibrary library, VisualStore store) : BackgroundService
+internal sealed class VisualQueue(VisualLibrary library, VisualStore store, ILogger<VisualQueue> logger) : BackgroundService
 {
-    protected override async Task ExecuteAsync(CancellationToken stoppingToken)
+    protected override Task ExecuteAsync(CancellationToken stoppingToken)
     {
         DateTime nextPrune = DateTime.MinValue;
-        while (!stoppingToken.IsCancellationRequested)
+        return VisualWorkQueue.Run(Next, ct => Task.Delay(TimeSpan.FromSeconds(1), ct), logger, stoppingToken);
+
+        Task<bool> Next(CancellationToken ct)
         {
-            if (DateTime.UtcNow >= nextPrune)
-            {
-                store.PruneChunks();
-                nextPrune = DateTime.UtcNow.AddHours(1);
-            }
-            if (!await library.RunNext(stoppingToken))
-                await Task.Delay(TimeSpan.FromSeconds(1), stoppingToken);
+            if (DateTime.UtcNow < nextPrune) return library.RunNext(ct);
+            nextPrune = DateTime.UtcNow.AddHours(1);
+            store.PruneChunks();
+            return library.RunNext(ct);
         }
     }
 }

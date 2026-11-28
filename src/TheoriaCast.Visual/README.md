@@ -11,6 +11,8 @@ dotnet run --project src/TheoriaCast.Visual.Api
 dotnet run --project src/TheoriaCast.Visual.Atelier
 ```
 
+Visual の4プロジェクトはルートの `TheoriaCast.Visual.slnx` でまとめてビルドできます。
+
 [素材のアトリエ](http://localhost:39416) を開き、`%LOCALAPPDATA%\TheoriaCast\Visual\connection.json` を接続ファイルとして読み込みます。ファイルには Bearer トークンが含まれます。既定では API は `127.0.0.1:39415`、Atelier は `localhost:39416` で待ち受けます。素材棚の保存先は `Visual:Data` で指定できます。複数のサーバーを同時に起動するときは保存先とポートを個別に指定します。
 
 素材棚で画像またはフォルダを取り込み、選択した画像を一括編集します。ジョブの完了後に「結果を素材セットで確認」を開き、各素材の判定を済ませて版を承認します。未接続の参照もセットに残り、「確認不可」と表示されます。承認履歴から制作条件を確認するときは各素材の「レシピ」を開きます。
@@ -67,6 +69,7 @@ API は `/api/v1/visual/`、Streamable HTTP MCP は接続ファイルの `mcp_ur
 | 操作 | API | MCP |
 | --- | --- | --- |
 | 取り込み | `POST /assets/chunks`, `POST /assets/import` | `visual_stage_image_chunk`, `visual_import_asset` |
+| 画像本体の取得 | `GET /asset-refs/{server}/{id}/{hash}/image` | `visual_read_image` |
 | 見積もりと一括登録 | `POST /jobs/estimate`, `POST /jobs` | `visual_estimate_batch`, `visual_submit_batch` |
 | 比較ジョブ | `POST /jobs/preview-sweep` | `visual_preview_sweep` |
 | 進捗と処理結果 | `GET /jobs/{id}` | `visual_get_job` |
@@ -76,6 +79,12 @@ API は `/api/v1/visual/`、Streamable HTTP MCP は接続ファイルの `mcp_ur
 | 承認済みセットの出力 | `GET /sets/{id}/manifest`, `GET /sets/{id}/export` | `visual_get_set_manifest` |
 
 大きな画像は 384 KiB 以下のチャンクに分け、返された SHA-256 を元の順に並べて登録します。取り込み時に元ファイル全体の SHA-256 をサーバーで確認します。上限は画像あたり 16 MiB、4,194,304 画素、バッチあたり 200 件です。
+
+JPEG は新規レシピの処理時に EXIF の向きを適用し、元のバイト列を素材棚に保持します。既存レシピの再実行では保存当時の向きを使います。画像の取得を含む MCP の手順は [SKILL.md](../../.agents/skills/theoriacast-visual/SKILL.md) を参照してください。
+
+画像処理は項目単位、カラオケ動画はジョブ単位で試行回数を保存します。再起動後は待機中の項目を先に処理します。中断からの再開を含めて上限は3試行です。
+
+`library.json` は更新のたびに全体を書き出します。回帰試験では素材61点・27ジョブで約125 KiBでした。数十素材・数十ジョブ程度の案件を当面の利用目安とし、長期運用では状態ファイルのサイズと更新時間を確認してください。状態の分割、索引、保持期間の設定は次段の課題です。
 
 レシピはサーバーの JSON と処理済み PNG に保存されます。`{ "recipeId": "…" }` で再実行し、`"change": { "parameter": "strength", "value": 0.4 }` を追加すると1項目だけ変えた新レシピを親レシピに紐づけて登録します。同じモデルと条件を固定し、レシピで再実行できます。画素は処理環境によって異なることがあります。別サーバーの素材レシピは参照先につながる間は閲覧できます。再実行は素材の保管先サーバーから行います。
 

@@ -93,6 +93,6 @@ internal sealed class VisualEndpoints(VisualLibrary library) : IApiEndpointProvi
         catch (VisualConflict e) { return Result(new { error = e.Message }, 409); }
         catch (JsonException) { return Result(new { error = "入力 JSON の形式を確認してください。" }, 400); }
         catch (InvalidDataException e) { return Result(new { error = e.Message }, 400); }
-        catch (ArgumentException) { return Result(new { error = "入力画像または編集パラメータを確認してください。" }, 400); }
+        catch (ArgumentException e) { return Result(new { error = e.Message }, 400); }
     }
 }

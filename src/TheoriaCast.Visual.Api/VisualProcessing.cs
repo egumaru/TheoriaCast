@@ -1,9 +1,11 @@
 using System.Globalization;
+using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Text.Json;
 using AIKernel.Contracts.Images;
 using AIKernel.Providers.Flux;
 using AIKernel.Providers.Image;
+using Microsoft.ML.OnnxRuntime;
 using OpenCvSharp;
 
 namespace TheoriaCast.Visual.Api;
@@ -11,9 +13,14 @@ namespace TheoriaCast.Visual.Api;
 internal static class EditRecipes
 {
     internal const string ImageProvider = "AIKernel.Providers.Image";
-    internal const string ImageProviderVersion = "0.3.0";
     private const string LegacyImageProviderVersion = "0.2.0";
+    private const string JpegOrientationKey = "jpegOrientation";
+    private const string ApplyExif = "OpenCV EXIF; lossless PNG for Image Provider";
     internal const string InspectionEngineVersion = "2";
+    internal static string ImageProviderVersion => VersionOf(typeof(ImageEditProvider));
+    private static string VersionOf(Type type) =>
+        type.Assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion
+        ?? type.Assembly.GetName().Version?.ToString() ?? throw new InvalidOperationException("Assembly version unavailable.");
 
     public static string CpuStylizationStyle(string touch) => touch == "manga" ? "pencil" : touch;
 
@@ -27,7 +34,8 @@ internal static class EditRecipes
     public static bool ModelPresent(string? directory) =>
         directory is not null && FluxFiles.Keys.All(name => File.Exists(Path.Combine(directory, name)));
 
-    public static ProcessingEngine Engine(EditSettings settings, string hardware, string? inspectionVersion = null)
+    public static ProcessingEngine Engine(EditSettings settings, string hardware, string? inspectionVersion = null,
+        bool normalizeJpeg = true)
     {
         var algorithm = settings.Operation switch
         {
@@ -40,9 +48,16 @@ internal static class EditRecipes
             "background" when settings.Background != "generated" => "BiRefNet_lite 512 FP32",
             _ => "FLUX.2 [klein] 4B"
         };
-        var libs = new Dictionary<string, string> { ["OpenCV"] = "4.13.0", ["OpenCvSharp"] = "4.13.0.20261107" };
+        var libs = new Dictionary<string, string>
+        {
+            ["OpenCV"] = Cv2.GetVersionString() ?? throw new InvalidOperationException("OpenCV version unavailable."),
+            ["OpenCvSharp"] = VersionOf(typeof(Cv2))
+        };
         var models = new Dictionary<string, string>();
-        var parameters = new Dictionary<string, string>();
+        var parameters = new Dictionary<string, string>
+        {
+            [JpegOrientationKey] = normalizeJpeg ? ApplyExif : "stored pixel orientation"
+        };
         if (settings.Operation == "resize")
         {
             parameters["anchor"] = settings.FitMode == "pad" ? "center of safe area" : "center";
@@ -62,7 +77,7 @@ internal static class EditRecipes
         }
         if (settings.Operation == "background")
         {
-            libs["ONNX Runtime"] = "1.32.0";
+            libs["ONNX Runtime"] = OrtEnv.Instance().GetVersionString();
             libs[ImageProvider] = ImageProviderVersion;
             models["birefnet-lite-512.onnx"] = ImageEditProvider.BackgroundModelSha256;
             parameters["matte"] = "512×512 FP32, soft alpha";
@@ -81,8 +96,8 @@ internal static class EditRecipes
         }
         if (algorithm == "FLUX.2 [klein] 4B")
         {
-            libs[hardware == "cpu" ? "AIKernel.Providers.Flux" : "AIKernel.Providers.Flux.Cuda"] = "0.1.5";
-            libs["FLUX ABI"] = "1";
+            var provider = hardware == "cpu" ? typeof(FluxImageProvider) : typeof(FluxCudaImageProvider);
+            libs[provider.Assembly.GetName().Name!] = VersionOf(provider);
             parameters["sampler"] = "Euler";
             parameters["steps"] = "4";
             parameters["cfg"] = "1";
@@ -99,15 +114,27 @@ internal static class EditRecipes
 
     public static bool Matches(ProcessingEngine recorded, ProcessingEngine current, EditSettings settings)
     {
-        if (!SameMap(recorded.FixedParameters, current.FixedParameters)) return false;
-        if (SameRuntime(recorded, current)) return true;
-        // 0.3.0 preserves 0.2.0 behavior when the new edge options are inactive.
-        if (RefinesEdges(settings) || !UsesLegacyImageProvider(recorded) ||
-            current.Libraries.GetValueOrDefault(ImageProvider) != ImageProviderVersion)
-            return false;
-        var previousLibraries = new Dictionary<string, string>(current.Libraries) { [ImageProvider] = LegacyImageProviderVersion };
-        return SameRuntime(recorded, current with { Libraries = previousLibraries });
+        if (recorded.FixedParameters.ContainsKey(JpegOrientationKey))
+            return SameMap(recorded.FixedParameters, current.FixedParameters) && SameRuntime(recorded, current);
+
+        // Old recipes omitted the JPEG policy and recorded release strings instead of loaded versions.
+        var parameters = new Dictionary<string, string>(current.FixedParameters);
+        parameters.Remove(JpegOrientationKey);
+        var libraries = current.Libraries.ToDictionary(pair => pair.Key, pair => pair.Value.Split('+', 2)[0]);
+        if (libraries["OpenCvSharp"] == "4.13.0.20261107-beta")
+            libraries["OpenCvSharp"] = "4.13.0.20261107";
+        if (libraries.GetValueOrDefault("AIKernel.Providers.Flux") == "0.1.5" ||
+            libraries.GetValueOrDefault("AIKernel.Providers.Flux.Cuda") == "0.1.5")
+            libraries["FLUX ABI"] = "1";
+        // 0.3.0 preserves 0.2.0 behavior while the new background edge options are inactive.
+        if (UsesLegacyImageProvider(recorded) && !RefinesEdges(settings) &&
+            libraries.GetValueOrDefault(ImageProvider) == "0.3.0")
+            libraries[ImageProvider] = LegacyImageProviderVersion;
+        return SameMap(recorded.FixedParameters, parameters) && SameRuntime(recorded, current with { Libraries = libraries });
     }
+
+    public static bool NormalizesJpeg(ProcessingEngine engine) =>
+        engine.FixedParameters.GetValueOrDefault(JpegOrientationKey) == ApplyExif;
 
     public static bool UsesLegacyImageProvider(ProcessingEngine engine) =>
         engine.Libraries.GetValueOrDefault(ImageProvider) == LegacyImageProviderVersion;
@@ -330,7 +357,9 @@ internal sealed partial class VisualProcessing : IDisposable
     {
         var settings = recipe.Settings;
         var hardware = recipe.Engine.Hardware;
-        if (!Supports(settings, hardware) || !EditRecipes.Matches(recipe.Engine, EditRecipes.Engine(settings, hardware), settings))
+        var normalizeJpeg = EditRecipes.NormalizesJpeg(recipe.Engine);
+        if (!Supports(settings, hardware) ||
+            !EditRecipes.Matches(recipe.Engine, EditRecipes.Engine(settings, hardware, normalizeJpeg: normalizeJpeg), settings))
             throw new VisualConflict("この計算資源で固定レシピを実行できません。");
         if (VisualStore.Hash(bytes) != recipe.Input.Sha256)
             throw new InvalidDataException("入力素材の SHA-256 が一致しません。");
@@ -338,21 +367,23 @@ internal sealed partial class VisualProcessing : IDisposable
         if (gpu) await gpuGate.WaitAsync(ct);
         try
         {
+            using var source = VisualImages.Decode(bytes, normalizeJpeg);
             if (settings.Operation == "stylize" && !gpu)
             {
-                var result = await editor.StylizeAsync(bytes, EditRecipes.CpuStylizationStyle(settings.Touch!),
+                var providerInput = VisualImages.ProviderInput(bytes, source, normalizeJpeg);
+                var result = await editor.StylizeAsync(providerInput, EditRecipes.CpuStylizationStyle(settings.Touch!),
                     new ImageStylizationOptions(settings.Strength!.Value), ct);
                 return result.ToArray();
             }
 
-            using var source = VisualImages.Decode(bytes);
             using var image = settings.Operation switch
             {
                 "resize" when settings.FitMode=="pad" => VisualImages.Pad(source,settings),
                 "resize" => VisualImages.Crop(source, settings.Width!.Value, settings.Height!.Value),
-                "colorMatch" => VisualImages.MatchColor(source,background!,settings.ColorMatchStrength!.Value),
+                "colorMatch" => VisualImages.MatchColor(source,background!,settings.ColorMatchStrength!.Value,normalizeJpeg),
                 "stylize" => await StylizeWithFlux(settings, recipe.EffectivePrompt!, source, ct),
-                "background" => await Background(settings, recipe.EffectivePrompt, gpu, bytes, source, background, ct),
+                "background" => await Background(settings, recipe.EffectivePrompt, gpu,
+                    VisualImages.ProviderInput(bytes, source, normalizeJpeg), source, background, normalizeJpeg, ct),
                 _ => throw new ArgumentException("未対応の編集です。")
             };
             ct.ThrowIfCancellationRequested();
@@ -367,23 +398,30 @@ internal sealed partial class VisualProcessing : IDisposable
         return VisualImages.Blend(source, edited, settings.Strength!.Value);
     }
 
-    private async Task<Mat> Background(EditSettings settings, string? prompt, bool gpu, byte[] input, Mat source, byte[]? background, CancellationToken ct)
+    private async Task<Mat> Background(EditSettings settings, string? prompt, bool gpu, byte[] input, Mat source,
+        byte[]? background, bool normalizeJpeg, CancellationToken ct)
     {
         var options = new ImageMattingOptions(settings.MaskRefineRadius ?? 0, settings.MaskErodePx ?? 0,
             settings.DecontaminateEdge ?? false);
         var cutout = await editor.RemoveBackgroundAsync(input, options, ct);
         var foreground = VisualImages.Decode(cutout.ToArray());
+        if (foreground.Size() != source.Size() || foreground.Type() != MatType.CV_8UC4)
+        {
+            foreground.Dispose();
+            throw new InvalidDataException("背景除去の出力の寸法またはチャンネルが入力と一致しません。");
+        }
         if (settings.Background == "transparent") return foreground;
         using (foreground)
         {
             using var layer = settings.Background switch
             {
                 "solid" => Solid(source, settings.Color!),
-                "image" => CustomBackground(background!, source),
+                "image" => CustomBackground(background!, source, normalizeJpeg),
                 "generated" => await Flux(source, settings, prompt!, gpu, ct),
                 _ => throw new ArgumentException("未対応の背景です。")
             };
-            return VisualImages.Composite(foreground, layer);
+            using var rgba = VisualImages.ToBgra(layer);
+            return VisualImages.Composite(foreground, rgba);
         }
     }
 
@@ -393,9 +431,9 @@ internal sealed partial class VisualProcessing : IDisposable
         return new Mat(source.Rows, source.Cols, MatType.CV_8UC3, new Scalar(hex & 255, (hex >> 8) & 255, hex >> 16));
     }
 
-    private static Mat CustomBackground(byte[] bytes, Mat source)
+    private static Mat CustomBackground(byte[] bytes, Mat source, bool normalizeJpeg)
     {
-        using var layer = VisualImages.Decode(bytes);
+        using var layer = VisualImages.Decode(bytes, normalizeJpeg);
         return VisualImages.Crop(layer, source.Width, source.Height);
     }
 

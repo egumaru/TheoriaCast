@@ -10,6 +10,7 @@ internal sealed class KaraokeLibrary(VisualStore chunks, KaraokeEncoder encoder,
     private const long MaxAudioBytes = 128 * 1024 * 1024;
     private readonly string root = Path.Combine(data, "karaoke");
     private readonly SemaphoreSlim ready = new(0);
+    private readonly VisualWorkQueue queue = new();
     private string AudioPath(string digest) => Path.Combine(root, "audio", VisualStore.CheckHash(digest) + ".wav");
     private string JobsPath => Path.Combine(root, "jobs");
 
@@ -169,15 +170,34 @@ internal sealed class KaraokeLibrary(VisualStore chunks, KaraokeEncoder encoder,
     private static void Save<T>(string path, T value) =>
         VisualStore.Write(path, JsonSerializer.SerializeToUtf8Bytes(value, JsonSerializerOptions.Web));
 
-    public KaraokeJob Job(string id) => Read<KaraokeJob>(Path.Combine(DirectoryFor(id), "job.json"));
+    public KaraokeJob Job(string id)
+    {
+        var path = DirectoryFor(id);
+        id = Path.GetFileName(path);
+        try
+        {
+            var job = Read<KaraokeJob>(Path.Combine(path, "job.json"));
+            if (job.Id != id || job.Mode is not ("bars" or "score" or "lyrics") || string.IsNullOrWhiteSpace(job.Title) ||
+                !VisualWorkQueue.Pending(job.State) && job.State is not ("done" or "failed") || job.Attempts < 0)
+                throw new InvalidDataException();
+            return job;
+        }
+        catch (Exception error) when (error is JsonException or InvalidDataException or IOException or UnauthorizedAccessException)
+        {
+            // Expose the failed record by its directory ID and leave the unreadable snapshot available for diagnosis.
+            return new(id, "unknown", "読み取れないジョブ", "failed", DateTimeOffset.UnixEpoch,
+                Error: "ジョブの状態ファイルを読み取れません。");
+        }
+    }
     public KaraokeRecipe Recipe(string id)
     {
         _ = Job(id);
         return Read<KaraokeRecipe>(Path.Combine(DirectoryFor(id), "recipe.json"));
     }
     public KaraokeJob[] Jobs() => Directory.Exists(JobsPath)
-        ? Directory.EnumerateDirectories(JobsPath).Select(path => Path.Combine(path, "job.json"))
-            .Where(File.Exists).Select(Read<KaraokeJob>).OrderByDescending(job => job.CreatedAt).ToArray()
+        ? Directory.EnumerateDirectories(JobsPath)
+            .Where(path => Guid.TryParseExact(Path.GetFileName(path), "N", out _) && File.Exists(Path.Combine(path, "job.json")))
+            .Select(path => Job(Path.GetFileName(path))).OrderByDescending(job => job.CreatedAt).ToArray()
         : [];
     public KaraokeJob Replay(string id) => Queue(Recipe(id), id);
     public KaraokeFrame Frame(string id, int frame) => new KaraokeScene(Recipe(id)).Frame(frame);
@@ -213,42 +233,44 @@ internal sealed class KaraokeLibrary(VisualStore chunks, KaraokeEncoder encoder,
         return new(offset, stream.Length, job.VideoSha256!, bytes);
     }
 
-    internal async Task Run(CancellationToken ct)
+    internal Task Run(CancellationToken ct) =>
+        VisualWorkQueue.Run(RunNext, ready.WaitAsync, logger, ct);
+
+    private async Task<bool> RunNext(CancellationToken ct)
     {
-        while (!ct.IsCancellationRequested)
+        var job = Jobs().Where(item => VisualWorkQueue.Pending(item.State) && queue.CanRun(item.Id))
+            .OrderBy(item => item.State == "running").ThenBy(item => item.CreatedAt).FirstOrDefault();
+        if (job is null) return false;
+        var path = DirectoryFor(job.Id);
+        var status = Path.Combine(path, "job.json");
+        void SaveJob(KaraokeJob value)
         {
-            var job = Jobs().LastOrDefault(item => item.State is "queued" or "running");
-            if (job is null)
-            {
-                await ready.WaitAsync(ct);
-                continue;
-            }
-            var path = DirectoryFor(job.Id);
-            var status = Path.Combine(path, "job.json");
-            Save(status, job with { State = "running" });
+            Save(status, value);
+            job = value;
+        }
+
+        await queue.Process(job.Id, job.Attempts,
+            attempts => SaveJob(job with { State = "running", Attempts = attempts }),
+            Render,
+            error => SaveJob(job with { State = "failed", Error = error }),
+            "動画を書き出せませんでした。FFmpeg と入力を確認してください。", logger, ct);
+        return true;
+
+        async Task Render()
+        {
             var ext = Extension(job.Mode);
             var final = Path.Combine(path, "result." + ext);
-            try
+            var recipe = Recipe(job.Id);
+            var temp = await encoder.Render(path, AudioPath(recipe.AudioSha256), ext, recipe, ct);
+            File.Move(temp, final, overwrite: true);
+            using var video = File.OpenRead(final);
+            var sha256 = Convert.ToHexStringLower(await SHA256.HashDataAsync(video, ct));
+            ct.ThrowIfCancellationRequested();
+            SaveJob(job with
             {
-                var recipe = Recipe(job.Id);
-                var temp = await encoder.Render(path, AudioPath(recipe.AudioSha256), ext, recipe, ct);
-                File.Move(temp, final, overwrite: true);
-                using var video = File.OpenRead(final);
-                Save(status, job with
-                {
-                    State = "done", VideoSha256 = Convert.ToHexStringLower(await SHA256.HashDataAsync(video, ct)),
-                    VideoBytes = video.Length, DownloadPath = VisualProtocol.Prefix + "/karaoke/jobs/" + job.Id + "/video"
-                });
-            }
-            catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
-            catch (Exception ex)
-            {
-                logger.LogWarning("Karaoke render {Job} failed ({Type})", job.Id, ex.GetType().Name);
-                Save(status, job with
-                {
-                    State = "failed", Error = ex is VisualConflict ? ex.Message : "動画を書き出せませんでした。FFmpeg と入力を確認してください。"
-                });
-            }
+                State = "done", VideoSha256 = sha256,
+                VideoBytes = video.Length, DownloadPath = VisualProtocol.Prefix + "/karaoke/jobs/" + job.Id + "/video"
+            });
         }
     }
 }

@@ -81,9 +81,9 @@ internal static partial class VisualImages
         return alpha>0?new(Math.Round(blue/alpha),Math.Round(green/alpha),Math.Round(red/alpha),255):HexColor("#f5f2eb");
     }
 
-    public static Mat MatchColor(Mat source,byte[] referenceBytes,double strength)
+    public static Mat MatchColor(Mat source,byte[] referenceBytes,double strength,bool normalizeJpeg)
     {
-        using var reference=Decode(referenceBytes);
+        using var reference=Decode(referenceBytes, normalizeJpeg);
         if(strength==0) return source.Clone();
         using var src=ToLab(source,out var sourceAlpha);
         using var target=ToLab(reference,out var targetAlpha);

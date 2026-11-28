@@ -9,17 +9,21 @@ internal static partial class VisualImages
     private const int MaxPixels = 4 * 1024 * 1024;
     private static ReadOnlySpan<byte> PngSignature => [137, 80, 78, 71, 13, 10, 26, 10];
 
-    public static Mat Decode(byte[] bytes)
+    public static Mat Decode(byte[] bytes, bool normalizeJpeg = true)
     {
         if (bytes.Length is 0 or > VisualProtocol.MaxImageBytes)
             throw new InvalidDataException("画像の上限は 16 MiB です。");
         var (width, height) = Dimensions(bytes);
         if (width is 0 or > 8192 || height is 0 or > 8192 || (long)width * height > MaxPixels)
             throw new InvalidDataException("画像の上限は各辺 8192 ピクセル、全体で 419 万画素です。");
+        bool orient = normalizeJpeg && !IsPng(bytes);
         Mat image;
-        try { image = Cv2.ImDecode(bytes, ImreadModes.Unchanged); }
+        // JPEG can honor EXIF without forcing grayscale or color. Keep PNG alpha and depth unchanged.
+        try { image = Cv2.ImDecode(bytes, orient ? ImreadModes.AnyColor : ImreadModes.Unchanged); }
         catch (OpenCVException) { throw new InvalidDataException("画像を復号できません。"); }
-        if (image.Empty() || image.Width != width || image.Height != height ||
+        bool expectedSize = (image.Width == width && image.Height == height) ||
+            (orient && image.Width == height && image.Height == width);
+        if (image.Empty() || !expectedSize ||
             (image.Type() != MatType.CV_8UC1 && image.Type() != MatType.CV_8UC3 && image.Type() != MatType.CV_8UC4))
         {
             image.Dispose();
@@ -28,7 +32,10 @@ internal static partial class VisualImages
         return image;
     }
 
-    public static string MediaType(ReadOnlySpan<byte> bytes) => bytes.StartsWith(PngSignature) ? "image/png" : "image/jpeg";
+    public static bool IsPng(ReadOnlySpan<byte> bytes) => bytes.StartsWith(PngSignature);
+    public static string MediaType(ReadOnlySpan<byte> bytes) => IsPng(bytes) ? "image/png" : "image/jpeg";
+    public static byte[] ProviderInput(byte[] original, Mat decoded, bool normalizeJpeg) =>
+        normalizeJpeg && !IsPng(original) ? Encode(decoded) : original;
 
     private static (uint Width, uint Height) Dimensions(ReadOnlySpan<byte> bytes)
     {
@@ -91,8 +98,11 @@ internal static partial class VisualImages
 
     public static Mat Composite(Mat foreground, Mat background)
     {
-        using var front = ToBgra(foreground);
-        using var back = ToBgra(background);
+        if (foreground.Size() != background.Size() || foreground.Type() != MatType.CV_8UC4 ||
+            background.Type() != MatType.CV_8UC4)
+            throw new InvalidDataException("合成する前景と背景の寸法とチャンネル数が一致しません。");
+        using var front = foreground.Clone();
+        using var back = background.Clone();
         if (!front.GetArray(out Vec4b[] above) || !back.GetArray(out Vec4b[] below))
             throw new InvalidDataException("背景合成用の画素を読み込めません。");
         for (int i = 0; i < above.Length; i++)

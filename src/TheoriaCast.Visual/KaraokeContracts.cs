@@ -18,7 +18,8 @@ public sealed record KaraokeRecipe(string Mode, string Title, string? TrackId, s
     KaraokeNote[] Notes, KaraokeCue[] Lyrics, decimal? Bpm, int BeatsPerBar, KaraokeStyle Style,
     string Engine, string FfmpegSha256, string FontSha256, string FontFamily, int Frames);
 public sealed record KaraokeJob(string Id, string Mode, string Title, string State, DateTimeOffset CreatedAt,
-    string? ParentId = null, string? VideoSha256 = null, long? VideoBytes = null, string? DownloadPath = null, string? Error = null);
+    string? ParentId = null, string? VideoSha256 = null, long? VideoBytes = null, string? DownloadPath = null,
+    string? Error = null, int Attempts = 0);
 public sealed record KaraokeFrameNote(int Index, int Midi, decimal X, int Y, bool Active);
 public sealed record KaraokeFrameLyric(int Index, string Text, bool Active, bool Underline, string Color, int Row);
 public sealed record KaraokeFrame(int Index, decimal Seconds, int? PlayheadX, KaraokeFrameNote[] Notes, KaraokeFrameLyric[] Lyrics);

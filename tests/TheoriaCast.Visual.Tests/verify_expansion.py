@@ -10,7 +10,7 @@ import sys
 import tempfile
 from zipfile import ZipFile
 
-from PIL import Image, ImageDraw, ImageStat
+from PIL import Image, ImageChops, ImageDraw, ImageStat
 
 from verify_visual import ROOT, PREFIX, Server, atelier_check, cpu_checks, image, recipe_packet, request
 
@@ -62,18 +62,23 @@ def resize_checks(server, refs, set_id):
     portrait, changed = unpack(server, vertical["items"][0])
     assert len(vertical["items"]) == len(refs) and changed["parentId"] == recipe["id"]
     assert changed["targetAspect"] == "9:16" and changed["settings"]["marginOffsets"] == settings["marginOffsets"]
-    for edited in (horizontal, portrait):
-        width, height = edited.size
+    # 120x80 source contained in the asymmetric safe areas of the two canvases.
+    expected_rectangles = [(400, 54, 1615, 864), (162, 546, 972, 1086)]
+    corners = [(255, 0, 0), (0, 128, 0), (0, 0, 255), (255, 255, 0)]
+    for edited, bounds in zip((horizontal, portrait), expected_rectangles):
         rgb = edited.convert("RGB")
-        assert rgb.crop((0, height - int(height * .2), width, height)).getcolors(1)[0][1] == (245, 242, 235)
-        colors = rgb.getcolors(width * height)
-        assert {(255, 0, 0), (0, 128, 0), (0, 0, 255), (255, 255, 0)} <= {color for _, color in colors}
+        background = Image.new("RGB", rgb.size, (245, 242, 235))
+        assert ImageChops.difference(rgb, background).getbbox() == bounds
+        left, top, right, bottom = bounds
+        positions = [(left + 5, top + 5), (right - 6, top + 5),
+                     (left + 5, bottom - 6), (right - 6, bottom - 6)]
+        assert [rgb.getpixel(p) for p in positions] == corners
     for style in ("edge", "blur"):
         result = finished(server, {"operation": "resize", "fitMode": "pad", "width": 128, "height": 256,
                                     "padStyle": style}, inputs=refs[:1])
         rendered, recipe = unpack(server, result["items"][0])
         assert recipe["settings"]["padStyle"] == style and rendered.getpixel((0, 0))[3] == 255
-    print("PASS 1-A: FHD/vertical variants preserve four source corners and 20% bottom margin. All three fills.", flush=True)
+    print("PASS 1-A: FHD/vertical pad bounds, all four margins and source corner positions. All three fills.", flush=True)
 
 
 def sweep_checks(server, refs, set_id):

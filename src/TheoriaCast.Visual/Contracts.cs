@@ -72,7 +72,8 @@ public sealed record ResourceEstimate(string Hardware, string Model, double Minu
 public sealed record JobItem(string RecipeId, string Status = "queued", AssetRef? Output = null,
     string? Error = null, DateTimeOffset? FinishedAt = null, string? ExecutedOn = null,
     [property:JsonIgnore(Condition=JsonIgnoreCondition.WhenWritingNull)] VisualInspection? Inspection = null,
-    [property:JsonIgnore(Condition=JsonIgnoreCondition.WhenWritingNull)] ProcessingEngine? PinnedEngine = null);
+    [property:JsonIgnore(Condition=JsonIgnoreCondition.WhenWritingNull)] ProcessingEngine? PinnedEngine = null,
+    int Attempts = 0);
 public sealed record VisualJob(string Id, DateTimeOffset CreatedAt, string Status, ResourceEstimate Estimate, JobItem[] Items,
     string? SourceSetId = null, string? ParentJobId = null, string? Kind = null);
 public sealed record ComputeResource(string ServerId, string Name, string Hardware, string Algorithm, bool Matting,
@@ -99,6 +100,7 @@ public interface IVisualLibrary
 {
     StagedImageChunk Stage(ImageChunk chunk);
     Task<VisualAsset> Import(ImportImage request, CancellationToken ct);
+    Task<VisualImageChunk> ReadImageChunk(AssetRef reference, long offset, int count, CancellationToken ct);
     VisualAsset[] Assets();
     VisualAsset[] Search(AssetSearch request);
     VisualAsset Asset(string id);
@@ -118,5 +120,7 @@ public interface IVisualLibrary
     Task<AssetSetView> Approve(string id, ApproveSet request, CancellationToken ct);
     Task<VisualSetManifest> Manifest(string id, CancellationToken ct);
 }
+
+public sealed record VisualImageChunk(long Offset, long TotalBytes, string Sha256, string MediaType, byte[] Bytes);
 
 public sealed class VisualConflict(string message) : Exception(message);

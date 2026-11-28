@@ -72,7 +72,7 @@ export function showKaraokeJobs(list, jobs, { ask, refresh, action, button, empt
   for (const job of jobs) {
     const row = element("article", undefined, "set-row");
     const title = element("div");
-    title.append(element("h3", job.title), element("small", modes[job.mode] + " ・ " + states[job.state]));
+    title.append(element("h3", job.title), element("small", (modes[job.mode] ?? "カラオケ動画") + " ・ " + states[job.state]));
     if (job.error) title.append(element("p", job.error, "error-text"));
     const links = element("div", undefined, "buttons");
     const route = "/karaoke/jobs/" + job.id;
