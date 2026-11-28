@@ -9,6 +9,10 @@ internal sealed class MusicEndpoints(MusicStore store, ILogger<MusicEndpoints> l
 {
     private const string Client="client", Worker="worker", Json="application/json";
     public IEnumerable<ApiEndpoint> Endpoints => [
+        new("GET","/version","version",Client),
+        new("POST","/creator/mix-projects","mixProjects",Client,Json),
+        new("GET","/creator/jobs/{id}","exportJob",Client),
+        new("GET","/creator/jobs/{id}/download","exportFile",Client),
         new("GET","/jobs","jobs",Client), new("POST","/jobs","submit",Client,Json),
         new("GET","/jobs/revision","revision",Client),
         new("GET","/jobs/{id}","job",Client), new("POST","/jobs/{id}/cancel","cancel",Client),
@@ -43,6 +47,10 @@ internal sealed class MusicEndpoints(MusicStore store, ILogger<MusicEndpoints> l
         {
             switch (operationId)
             {
+                case "version": return Result(MusicRelease.Of(typeof(MusicStore).Assembly));
+                case "mixProjects": return Result(store.MixProjects(await Body<MixProjectCommand>()));
+                case "exportJob": return Result(store.GetExport(id));
+                case "exportFile": return new(200,Body:store.ExportFile(id,ct),ContentType:"application/zip",EnableRanges:true);
                 case "jobs": return Result(store.Jobs());
                 case "revision": return Result(store.Revisions());
                 case "job": return Result(store.GetJob(id));
@@ -58,7 +66,7 @@ internal sealed class MusicEndpoints(MusicStore store, ILogger<MusicEndpoints> l
                     if (!CompositionFiles.Materials.Contains(file)) return new(404);
                     var material=Path.Combine(Path.GetDirectoryName(store.GetTrack(id).file_path)!,file);
                     return File.Exists(material)?new(200,Body:File.OpenRead(material),ContentType:file=="generation.json"?Json:"text/plain; charset=utf-8"):new(404);
-                case "audio": return new(200,Body:File.OpenRead(store.GetTrack(id).file_path),ContentType:"audio/wav",EnableRanges:true);
+                case "audio": return new(200,Body:store.OpenTrackAudio(id,ct),ContentType:"audio/wav",EnableRanges:true);
                 case "waveform":
                     double? Seconds(string name)
                     {

@@ -56,7 +56,11 @@ builder.Services.AddAIKernelCore(config).WithDistributedApplication();
 var cfg = config["node-config"] ?? config["Music:NodeConfig"];
 var capabilities=config.GetSection("Music:Capabilities").Get<Dictionary<string,string[]>>()??new();
 if (cfg!=null) { var localNode=WorkerNode.Load(cfg); capabilities.TryAdd(localNode.node,localNode.types); }
-builder.Services.AddSingleton(new MusicStore(data,capabilities));
+int mixKeepLatest=config.GetValue("Music:MixKeepLatest",3);
+if(mixKeepLatest<1) throw new ArgumentException("Music:MixKeepLatest must be positive.");
+var exportTool=new CreatorAudio(config["Music:ExportFfmpeg"]??"ffmpeg");
+builder.Services.AddSingleton(new MusicStore(data,capabilities,exportTool){MixKeepLatest=mixKeepLatest});
+builder.Services.AddHostedService<CreatorExportWorker>();
 builder.Services.AddSingleton<IMusicLibrary>(sp => sp.GetRequiredService<MusicStore>());
 builder.Services.AddSingleton<IApiEndpointProvider, MusicEndpoints>();
 builder.Services.AddSingleton<IMcpToolProvider, MusicTools>();

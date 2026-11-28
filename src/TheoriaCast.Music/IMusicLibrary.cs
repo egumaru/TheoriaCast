@@ -2,6 +2,13 @@ namespace TheoriaCast.Music;
 
 public interface IMusicLibrary
 {
+    object MixProjects(MixProjectCommand input);
+    object MixVersion();
+    Task<StagedChunk> StageAudio(AudioChunk chunk,CancellationToken ct);
+    Task<ImportedTrack> ImportRecording(RecordingImport input,CancellationToken ct);
+    Task<TunedLoop> TuneLoop(LoopSuggestion request,CancellationToken ct);
+    ExportJob Export(CreatorExport request);
+    ExportJob GetExport(string id);
     Job Submit(JobSpec spec);
     Job GetJob(string id);
     List<Job> Jobs();

@@ -8,7 +8,7 @@
     if (started) return;
     started=true;
     window.atelierServerId=id;
-    for (const src of ["/studio.js","/waveform.js","/consultation.js","/composition.js"]) {
+    for (const src of ["/studio.js","/waveform.js","/consultation.js","/composition.js","/mix-projects.js"]) {
       await new Promise((resolve,reject)=>{
         const script=document.createElement("script");
         script.onload=resolve; script.onerror=reject; script.src=src; document.head.append(script);

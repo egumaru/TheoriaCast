@@ -28,6 +28,7 @@ static byte[] Audio()
 var root=Directory.CreateTempSubdirectory("theoria-store-test-");
 try
 {
+    await ProjectMixChecks.Check(Path.Combine(root.FullName,"dtm"));
     var types=new[]{"generate_bgm","edit","mix"};
     var node=new NodeReport("A",true,10000,"idle",types);
     var store=new MusicStore(root.FullName,new Dictionary<string,string[]>{{"A",types}});

@@ -9,7 +9,7 @@ namespace TheoriaCast.Music.Atelier;
 
 internal static class AtelierGateway
 {
-    private static readonly string[] ApiPaths = ["/jobs","/tracks","/nodes","/works","/studio/requests","/composition","/mcp","/heartbeat"];
+    private static readonly string[] ApiPaths = ["/jobs","/tracks","/nodes","/works","/studio/requests","/composition","/mcp","/heartbeat","/creator","/version"];
     private static readonly string[] RelayHeaders = ["Accept","Range","If-Range","If-None-Match","If-Modified-Since",
         "MCP-Protocol-Version","Mcp-Session-Id","Last-Event-ID"];
 

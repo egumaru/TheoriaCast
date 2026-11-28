@@ -51,3 +51,18 @@ Check source and donor durations first. Times are seconds. Map bar selections us
 After `get_job` reports `done`, follow its `track` with `get_track`. Return the track ID and resolve its `audio` path against the listener's local Atelier (default `http://localhost:39395`). In Library, expand **Lyrics and settings** and choose **Save audio** for a WAV on the user's computer. For text or a recipe, offer the files actually listed in `provenance.materials`. **Save composition bundle** downloads the composition settings and available materials. Download the WAV separately when handing over a recording and its project. A completed edit or mix has its own track ID. [Illustrated download instructions](https://theoriacast.online/guide/en/#downloads)
 
 For exact reproduction, call `get_generation({"track":"ID"})` on a take with a frozen recipe. Pass the returned document intact to `replay_generation({"document":…})`. Verify `result.replay_verified` and `result.sha256` after completion. Changing an instruction, seed or score creates a variation. An older track, edit or mix may have no frozen generator recipe. Never describe a queued replay as a verified match.
+
+## 静止ミックスの制作と巻き戻し
+
+Music API 0.2.5 以降で音量・音色・残響を調整する場合は、[トラックのDSPと音量測定](references/mix-dsp.md) に従って `get_export` のピーク・LUFS・クリッピング数を比較する。
+
+Music API 0.2.4 以降で区間を並べたり反復する場合は、[クリップ編集とループ検証](references/timeline-clips.md) を使う。MCP の `mix_projects` で配置・移動・トリム・フェード・反復・削除を行う。
+
+中央の曲棚（Music API 0.2.3以降）のMCPで `mix_projects` を使う。すべての引数を `input` に入れる。
+
+1. `get_track` で素材のテイクIDを確認する。`{"input":{"action":"create","manifest":{"title":"試聴ミックス","tracks":[]}}}` を送り、返った `project` と `head` を控える。
+2. トラック追加は `action:"save"`。以後の編集に `project` と `expected:直前のhead` を渡す。`manifest` は全体を送り、`tracks` に例として `[{"id":"backing","take":"伴奏ID"},{"id":"chorus","take":"コーラスID"},{"id":"guide","take":"ピアノID"}]` を入れる。返却マニフェストには各WAVのSHA-256が入る。
+3. バランス調整も `save`。直前の `revision.manifest` をコピーし、レーンの `gain_db`、`pan`（左−1、中央0、右1）、`mute`、`solo`、`invert_polarity` と全体の `master_gain_db` を変更する。位置 `start_sample` は48 kHzの整数フレーム（0.4秒なら19200）。`bpm` はメモ。モノラルは左右に送り、パンは反対側を減衰させる。ソロ中もミュートを優先する。
+4. `snapshot` に `label`・`expected` を渡し、戻りたい版の `head` を控える。`render` に現在の `expected` を渡し、返った `job` を `get_export({"id":"ジョブID"})` で完了まで確認する。`recipe.result_track` を `get_track` で開くと試聴待ちのWAV、`audio_package` にはWAVとレシピが入る。ピーク超過は `recipe.analysis.clipped_samples` に出るので、必要に応じてマスターを下げて別の版を作る。
+5. `history` で構成・差分・保持状態を確認し、`rollback` に戻したい `revision` と現在の `expected` を渡す。復元された `head` で再度 `render` する。以前のレンダーと `recipe.verification.wav_sha256` を比較できる。競合時は `get` で最新構成を取り直す。
+6. 古いレンダーだけを再生成する場合は `regenerate` に `project` と**書き出した版**の `revision` を渡して同じようにジョブを確認する。プロジェクト一覧は `list`。通常は採用版と最新3レンダーのWAVを保持し、ほかの版は試聴・ダウンロード時にもレシピから再生成する。原テイクが必要。
