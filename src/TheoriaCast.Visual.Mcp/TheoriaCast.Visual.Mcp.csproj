@@ -1,0 +1,9 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup><TargetFramework>net10.0</TargetFramework></PropertyGroup>
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+    <ProjectReference Include="../TheoriaCast.Visual/TheoriaCast.Visual.csproj" />
+    <PackageReference Include="AIKernel.Abstractions" Version="[0.1.4]" />
+    <PackageReference Include="Microsoft.Extensions.AI.Abstractions" Version="10.8.3" />
+  </ItemGroup>
+</Project>

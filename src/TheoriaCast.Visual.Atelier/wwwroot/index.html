@@ -1,0 +1,142 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>素材のアトリエ — TheoriaCast Visual Atelier</title>
+  <link rel="stylesheet" href="visual.css">
+  <script type="module" src="visual.js"></script>
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <div class="mark" aria-hidden="true"><b></b><b></b><b></b><b></b></div>
+      <div><span>TheoriaCast</span><h1>素材のアトリエ</h1></div>
+    </div>
+    <div class="connection">
+      <label for="server" id="connection-status">素材サーバー</label>
+      <select id="server" aria-label="素材サーバー"></select>
+      <label class="button quiet">接続ファイル<input id="connection-file" type="file" accept=".json,application/json" hidden></label>
+    </div>
+  </header>
+  <main>
+    <div class="workspace">
+      <section class="workspace-main">
+        <nav class="tabs" aria-label="作業画面">
+          <button type="button" class="tab active" data-panel="assets" aria-current="page">素材棚</button>
+          <button type="button" class="tab" data-panel="jobs">ジョブ</button>
+          <button type="button" class="tab" data-panel="sets">素材セット</button>
+          <button type="button" class="tab" data-panel="karaoke">カラオケ動画</button>
+        </nav>
+        <div class="notice" id="message" role="status" hidden></div>
+        <section id="assets" class="panel">
+          <div class="section-head">
+            <div><h2>素材棚</h2><p id="selection">0 件選択</p></div>
+            <div class="buttons">
+              <label class="button quiet">フォルダ<input id="folder" type="file" webkitdirectory multiple hidden></label>
+              <label class="button primary">画像を取り込む<input id="files" type="file" accept="image/png,image/jpeg" multiple hidden></label>
+            </div>
+          </div>
+          <form id="asset-search" class="buttons">
+            <label>素材を検索<input name="query" type="search" maxlength="160" placeholder="ファイル名・検品タグ"></label>
+            <button type="submit" class="quiet">検索</button>
+          </form>
+          <div id="asset-grid" class="grid"></div>
+        </section>
+        <section id="jobs" class="panel" hidden>
+          <div class="section-head"><h2>ジョブ</h2><button id="refresh-jobs" class="quiet" type="button">更新</button></div>
+          <div id="job-list" class="document-list"></div>
+        </section>
+        <section id="sets" class="panel" hidden>
+          <div class="section-head"><h2>素材セット</h2><button id="create-set" class="quiet" type="button">選択素材でセットを作成</button></div>
+          <div id="set-list" class="document-list"></div>
+          <div id="set-detail"></div>
+        </section>
+        <section id="karaoke" class="panel" hidden>
+          <div class="section-head"><h2>カラオケ動画</h2></div>
+          <form id="karaoke-form">
+            <div class="pair">
+              <label>曲名<input name="title" required maxlength="160"></label>
+              <label>表現<select name="mode">
+                <option value="bars">カラオケ風バー</option>
+                <option value="score">流れる楽譜</option>
+                <option value="lyrics">歌詞オーバーレイ（透過 MOV）</option>
+              </select></label>
+              <label>カラオケ・ガイド音源（WAV）<input name="audio" type="file" accept=".wav,audio/wav" required></label>
+              <label>ガイドメロディ譜（JSON）<input name="guide" type="file" accept=".json,application/json" required></label>
+              <label>歌詞タイミング（SRT・JSON）<input name="cues" type="file" accept=".srt,.json" required></label>
+              <label>歌詞表示<select name="lyrics">
+                <option value="">表現に合わせる</option>
+                <option value="preview">現在行の強調と次行予告</option>
+                <option value="underline">色変えと下線</option>
+                <option value="follow">歌唱に追従する表示</option>
+              </select></label>
+            </div>
+            <details>
+              <summary>描画設定</summary>
+              <div class="pair">
+                <label>幅（px）<input name="width" type="number" min="320" max="3840" step="2" value="1920" required></label>
+                <label>高さ（px）<input name="height" type="number" min="240" max="2160" step="2" value="1080" required></label>
+                <label>フレーム毎秒<input name="fps" type="number" min="15" max="60" value="30" required></label>
+                <label>スクロール速度（画面幅／秒）<input name="scroll" type="number" min="0.03" max="2" step="0.01" value="0.22" required></label>
+              </div>
+              <label>詳細設定（JSON）<textarea name="style" rows="3" placeholder='{"lines":2,"leadMs":250,"head":0.34}'></textarea></label>
+            </details>
+            <div class="buttons"><button type="submit" class="primary">動画を生成</button></div>
+          </form>
+          <div id="karaoke-jobs" class="document-list"></div>
+        </section>
+      </section>
+      <aside class="editor">
+        <form id="edit-form">
+          <h2>一括編集</h2>
+          <label>編集内容
+            <select name="operation">
+              <option value="stylize">写真のイラスト化</option>
+              <option value="resize">サイズ変換・トリミング</option>
+              <option value="background">背景の除去・差し替え</option>
+              <option value="colorMatch">素材の色合わせ</option>
+              <option value="inspect">素材の検品</option>
+            </select>
+          </label>
+          <label>対象<select name="set"><option value="">素材棚の選択</option></select></label>
+          <div id="adjustments"></div>
+          <label>計算資源
+            <select name="hardware">
+              <option value="auto">自動</option>
+              <option value="cpu">ローカル CPU</option>
+            </select>
+          </label>
+          <fieldset id="model-options" class="pair" hidden disabled>
+            <label>モデル解像度
+              <select name="resolution">
+                <option value="256">256 px</option>
+                <option value="512" selected>512 px</option>
+                <option value="768">768 px</option>
+                <option value="1024">1024 px</option>
+              </select>
+            </label>
+            <label>シード<input name="seed" type="number" value="42" min="0" max="2147483647" required></label>
+          </fieldset>
+          <div class="estimate" id="estimate" aria-live="polite" hidden></div>
+          <div class="buttons form-actions">
+            <button id="estimate-button" class="quiet" type="button">所要時間を確認</button>
+            <button class="primary" type="submit">ジョブ登録</button>
+          </div>
+        </form>
+      </aside>
+    </div>
+  </main>
+  <dialog id="recipe-dialog">
+    <header class="section-head"><h2>処理レシピ</h2><button type="button" class="quiet close">閉じる</button></header>
+    <p>同じモデルと条件を固定し、レシピで再実行できます。出力の画素は処理環境によって異なることがあります。</p>
+    <p id="recipe-error" class="error-text" role="alert" hidden></p>
+    <div id="recipe-detail"></div>
+  </dialog>
+  <dialog id="work-dialog">
+    <header class="section-head"><h2 id="work-title"></h2><button type="button" class="quiet close">閉じる</button></header>
+    <p id="work-error" class="error-text" role="alert" hidden></p>
+    <div id="work-detail"></div>
+  </dialog>
+</body>
+</html>

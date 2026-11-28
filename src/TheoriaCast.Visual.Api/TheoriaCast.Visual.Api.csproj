@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+  <PropertyGroup><TargetFramework>net10.0</TargetFramework></PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../TheoriaCast.Visual/TheoriaCast.Visual.csproj" />
+    <ProjectReference Include="../TheoriaCast.Visual.Mcp/TheoriaCast.Visual.Mcp.csproj" />
+    <PackageReference Include="AIKernel.Hosting" Version="[0.1.4]" />
+    <PackageReference Include="AIKernel.Providers.Distributed" Version="[0.1.4]" />
+    <PackageReference Include="AIKernel.Providers.Image" Version="[0.3.0]" />
+    <PackageReference Include="AIKernel.Providers.Flux" Version="[0.1.5]" />
+    <PackageReference Include="AIKernel.Providers.Flux.Cuda" Version="[0.1.5]" />
+    <PackageReference Include="AIKernel.Contracts.Images" Version="[0.3.0]" />
+  </ItemGroup>
+</Project>
