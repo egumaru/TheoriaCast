@@ -20,21 +20,33 @@ internal sealed class KaraokeLibrary(VisualStore chunks, KaraokeEncoder encoder,
     {
         var input = request.Input ?? throw new ArgumentException("音源と歌詞の入力が必要です。");
         var style = ValidateStyle(request.Mode, request.Style ?? new());
+        var lyrics = input.Srt is null ? input.Lyrics : input.Lyrics is null ? KaraokeSrt.Parse(input.Srt)
+            : throw new ArgumentException("歌詞は SRT か JSON のどちらか一方で指定してください。");
         var score = input.Notes ?? [];
         if (string.IsNullOrWhiteSpace(input.Title) || input.Title.Length > 160 ||
-            input.TrackId is { Length: > 160 } || input.Lyrics is not { Length: > 0 and <= 2400 } ||
+            input.TrackId is { Length: > 160 } || lyrics is not { Length: > 0 and <= 2400 } ||
             score.Length > 24000 || request.Mode != "lyrics" && score.Length == 0 ||
             input.Bpm is < 20 or > 350 || input.BeatsPerBar is < 1 or > 12)
             throw new ArgumentException("曲名、ガイド譜、歌詞キュー、テンポを確認してください。");
 
         var runtime = encoder.Fingerprint();
         var audio = input.Audio ?? throw new ArgumentException("WAV 音源が必要です。");
-        var seconds = await ImportAudio(audio, cancellationToken);
+        var seconds = await ImportAudio(audio, ValidateTiming, cancellationToken);
+        var recipe = new KaraokeRecipe(request.Mode, input.Title.Trim(), input.TrackId, audio.Sha256, seconds,
+            score, lyrics.Select(cue => cue with { Text = cue.Text.Replace("\r\n", "\n").Replace('\r', '\n').Trim() }).ToArray(),
+            input.Bpm, input.BeatsPerBar, style, runtime.Engine, runtime.Ffmpeg, runtime.Font, runtime.Family, (int)Math.Ceiling(seconds * style.Fps));
+        return Queue(recipe, null);
+
+        void ValidateTiming(decimal duration) => ValidateTimeline(lyrics, score, duration);
+    }
+
+    private static void ValidateTimeline(KaraokeCue[] lyrics, KaraokeNote[] score, decimal seconds)
+    {
         decimal end = 0;
-        foreach (var cue in input.Lyrics)
+        foreach (var cue in lyrics)
         {
             if (cue is null || cue.Start < end || cue.End <= cue.Start || cue.End > seconds + .001m ||
-                string.IsNullOrWhiteSpace(cue.Text) || cue.Text.Length > 500 ||
+                string.IsNullOrWhiteSpace(cue.Text) || cue.Text.Length > 500 || cue.Text.Contains('\uFFFD') ||
                 cue.Text.Any(c => char.IsControl(c) && c is not ('\r' or '\n')))
                 throw new ArgumentException("歌詞は重ならない順序で、音源内の有効な時間区間を指定してください。");
             end = cue.End;
@@ -47,10 +59,6 @@ internal sealed class KaraokeLibrary(VisualStore chunks, KaraokeEncoder encoder,
                 throw new ArgumentException("ガイド譜は音源内の単旋律を開始順で指定してください。");
             end = note.Start + note.Duration;
         }
-        var recipe = new KaraokeRecipe(request.Mode, input.Title.Trim(), input.TrackId, audio.Sha256, seconds,
-            score, input.Lyrics.Select(cue => cue with { Text = cue.Text.Replace("\r\n", "\n").Replace('\r', '\n').Trim() }).ToArray(),
-            input.Bpm, input.BeatsPerBar, style, runtime.Engine, runtime.Ffmpeg, runtime.Font, runtime.Family, (int)Math.Ceiling(seconds * style.Fps));
-        return Queue(recipe, null);
     }
 
     private static KaraokeStyle ValidateStyle(string mode, KaraokeStyle style)
@@ -78,10 +86,15 @@ internal sealed class KaraokeLibrary(VisualStore chunks, KaraokeEncoder encoder,
         value.AsSpan(1).IndexOfAnyExcept("0123456789abcdefABCDEF") < 0
             ? value.ToUpperInvariant() : throw new ArgumentException("色は #RRGGBB で指定してください。");
 
-    private async Task<decimal> ImportAudio(KaraokeAudio audio, CancellationToken ct)
+    private async Task<decimal> ImportAudio(KaraokeAudio audio, Action<decimal> validate, CancellationToken ct)
     {
         var target = AudioPath(audio.Sha256);
-        if (audio.Chunks is null && File.Exists(target)) return WavDuration(target);
+        if (audio.Chunks is null && File.Exists(target))
+        {
+            var existing = WavDuration(target);
+            validate(existing);
+            return existing;
+        }
         if (audio.Chunks is not { Length: > 0 and <= 342 })
             throw new ArgumentException("WAV チャンクを順番に指定してください。");
 
@@ -107,6 +120,7 @@ internal sealed class KaraokeLibrary(VisualStore chunks, KaraokeEncoder encoder,
             if (Convert.ToHexStringLower(hash.GetHashAndReset()) != audio.Sha256)
                 throw new ArgumentException("WAV の SHA-256 が一致しません。");
             var seconds = WavDuration(temp);
+            validate(seconds);
             try { File.Move(temp, target); }
             catch (IOException) when (File.Exists(target)) { }
             return seconds;
@@ -249,11 +263,28 @@ internal sealed class KaraokeLibrary(VisualStore chunks, KaraokeEncoder encoder,
             job = value;
         }
 
-        await queue.Process(job.Id, job.Attempts,
-            attempts => SaveJob(job with { State = "running", Attempts = attempts }),
-            Render,
-            error => SaveJob(job with { State = "failed", Error = error }),
-            "動画を書き出せませんでした。FFmpeg と入力を確認してください。", logger, ct);
+        try
+        {
+            await queue.Process(job.Id, job.Attempts,
+                attempts => SaveJob(job with { State = "running", Attempts = attempts }),
+                Render,
+                error => SaveJob(job with { State = "failed", Error = error }),
+                "動画を書き出せませんでした。FFmpeg と入力を確認してください。", logger, ct);
+        }
+        finally
+        {
+            foreach (var name in new[] { "fonts", "render.tmp.mp4", "render.tmp.mov" })
+            {
+                var temporary = Path.Combine(path, name);
+                try
+                {
+                    if (name != "fonts") File.Delete(temporary);
+                    else if (Directory.Exists(temporary)) Directory.Delete(temporary, recursive: true);
+                }
+                catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+                { logger.LogWarning(ex, "Could not remove karaoke temporary {Name} for {Job}", name, job.Id); }
+            }
+        }
         return true;
 
         async Task Render()

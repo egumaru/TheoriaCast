@@ -25,7 +25,9 @@ internal sealed class KaraokeScene(KaraokeRecipe recipe)
     private static string Clock(int centiseconds) =>
         FormattableString.Invariant($"{centiseconds / 360000}:{centiseconds / 6000 % 60:00}:{centiseconds / 100 % 60:00}.{centiseconds % 100:00}");
 
-    private int FrameClock(int frame) => (int)Math.Floor(frame * 100m / Style.Fps);
+    private bool Legacy => recipe.Engine == KaraokeEncoder.LegacyEngine;
+    internal int FrameClock(int frame) => Legacy ? (int)Math.Floor(frame * 100m / Style.Fps)
+        : frame == 0 ? 0 : (int)Math.Ceiling(frame * 100m / Style.Fps) - 1;
     private int Boundary(decimal seconds) =>
         Math.Clamp((int)Math.Ceiling(seconds * Style.Fps), 0, recipe.Frames);
     private decimal X(decimal onset, decimal seconds) => Head + (onset - seconds) * Speed;
@@ -176,8 +178,10 @@ internal sealed class KaraokeScene(KaraokeRecipe recipe)
 
     private void Move(StringBuilder ass, int layer, decimal onset, int y, int span, string color, string shape)
     {
-        var first = Math.Max(0, (int)Math.Floor((onset - (Style.Width + span - Head) / Speed) * 100));
-        var last = Math.Min(End, (int)Math.Ceiling((onset + (Head + span) / Speed) * 100));
+        var enters = onset - (Style.Width + span - Head) / Speed;
+        var leaves = onset + (Head + span) / Speed;
+        var first = Legacy ? Math.Max(0, (int)Math.Floor(enters * 100)) : FrameClock(Boundary(enters));
+        var last = Legacy ? Math.Min(End, (int)Math.Ceiling(leaves * 100)) : FrameClock(Boundary(leaves));
         if (last <= first) return;
         var from = X(onset, first / 100m);
         var to = X(onset, last / 100m);

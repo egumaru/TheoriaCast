@@ -43,7 +43,7 @@ public sealed class VisualTools : IMcpToolProvider
     [DisplayName("visual_stage_karaoke_audio"), Description("Stage up to 384 KiB of existing Music WAV audio as a base64 chunk. Keep returned SHA-256 values in order.")]
     public StagedImageChunk StageKaraoke(ImageChunk chunk) => karaoke.Stage(chunk);
 
-    [DisplayName("visual_submit_karaoke"), Description("Queue bars, score or standalone lyrics. Use Music guide start/duration/midi, lyric cue start/end/text in seconds, and WAV SHA-256 plus ordered staged chunks. Lyrics can use preview, underline or follow.")]
+    [DisplayName("visual_submit_karaoke"), Description("Queue bars, score or standalone lyrics. Use Music guide start/duration/midi, either input.srt (UTF-8 SubRip text) or input.lyrics (start/end/text in seconds), and WAV SHA-256 plus ordered staged chunks. Lyrics can use preview, underline or follow.")]
     public Task<KaraokeJob> SubmitKaraoke(KaraokeRequest request, CancellationToken cancellationToken) => karaoke.Submit(request, cancellationToken);
 
     [DisplayName("visual_list_karaoke_jobs"), Description("List karaoke video jobs on the selected server.")]

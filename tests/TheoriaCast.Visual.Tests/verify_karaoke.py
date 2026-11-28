@@ -64,12 +64,6 @@ def decode_frames(ffmpeg, path, frames, width, height):
             for i, index in enumerate(frames)}
 
 
-def audio_hash(ffmpeg, path):
-    result = subprocess.check_output([ffmpeg, "-v", "error", "-i", str(path), "-map", "0:a:0",
-        "-c:a", "pcm_s16le", "-f", "hash", "-hash", "sha256", "-"], timeout=90)
-    return result.decode().strip()
-
-
 def rgb(value):
     return tuple(bytes.fromhex(value[1:]))
 
@@ -88,7 +82,7 @@ def inspect_frames(server, ffmpeg, job, path, recipe, folder):
                       and any(cue["start"] <= note["start"] < cue["end"] for cue in cues))
     onset = math.ceil(notes[note_index]["start"] * fps)
     cue = next(cue for cue in cues if cue["start"] > 2 and cue["end"] - cue["start"] > .2)
-    frames = sorted({onset, onset + 1, math.ceil(cue["start"] * fps), math.ceil(cue["end"] * fps) - 1,
+    frames = sorted({onset - 1, onset, onset + 1, math.ceil(cue["start"] * fps) - 1, math.ceil(cue["start"] * fps), math.ceil(cue["end"] * fps) - 1,
                      min(recipe["frames"] - 1, math.ceil(cue["end"] * fps))})
     pictures = decode_frames(ffmpeg, path, frames, width, height)
     report = []
@@ -121,14 +115,16 @@ def inspect_frames(server, ffmpeg, job, path, recipe, folder):
                 assert note["midi"] == notes[note_index]["midi"] and note["active"]
                 assert abs(note["x"] - (head + (notes[note_index]["start"] - time) * width * style["scroll"])) < .01
                 x = round(note["x"])
-                assert color_hits(picture, (x - 10, note["y"] - 14, x + 16, note["y"] + 14),
-                                  rgb(style["notes"]), 45) >= 8, (mode, index, x, note["y"])
+                radius = math.ceil(width * style["scroll"] / fps / 2) - 1
+                assert radius >= 1
+                assert color_hits(picture, (x - radius, note["y"] - 5, x + radius + 1, note["y"] + 6),
+                                  rgb(style["notes"]), 45) >= 4, (mode, index, x, note["y"])
         screenshot = folder / f"{mode}-frame-{index:05d}.png"
         picture.save(screenshot)
         report.append({"frame": index, "seconds": time, "activeCueIndex": expected_line, "playheadX": scene["playheadX"],
                        "onsetNote": next((n for n in scene["notes"] if n["index"] == note_index), None),
                        "lyrics": scene["lyrics"], "image": screenshot.name})
-    return frames, pictures, report
+    return report
 
 
 def main():
@@ -170,17 +166,11 @@ def main():
             print(mode, "rendered", job["videoBytes"], "bytes", flush=True)
             path = folder / name
             download(server, job, path)
-            frames, pictures, report = inspect_frames(server, str(args.ffmpeg), job, path, recipe, folder)
+            report = inspect_frames(server, str(args.ffmpeg), job, path, recipe, folder)
             replay = finish(server, server.mcp("replay_karaoke", id=job["id"])["id"])
             assert replay["parentId"] == job["id"]
             method = "SHA-256 of the complete video file"
-            if replay["videoSha256"] != job["videoSha256"]:
-                copy = folder / ("replay-" + name)
-                download(server, replay, copy)
-                replay_frames = decode_frames(str(args.ffmpeg), copy, frames, 1920, 1080)
-                assert all(pictures[i].tobytes() == replay_frames[i].tobytes() for i in frames)
-                assert audio_hash(str(args.ffmpeg), path) == audio_hash(str(args.ffmpeg), copy)
-                method = "exact RGBA samples and decoded audio SHA-256"
+            assert replay["videoSha256"] == job["videoSha256"], (mode, job["id"], replay["id"])
             evidence.append({"mode": mode, "video": name, "sha256": job["videoSha256"],
                              "replaySha256": replay["videoSha256"], "determinism": method, "frames": report})
             (folder / (mode + "-recipe.json")).write_text(json.dumps(recipe, ensure_ascii=False, indent=2), encoding="utf-8")

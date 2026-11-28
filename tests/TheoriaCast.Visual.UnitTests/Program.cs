@@ -2,6 +2,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 using OpenCvSharp;
 using TheoriaCast.Visual.Api;
 
+KaraokeSceneTests.Run();
 VerifyComposition();
 await VerifyQueue();
 

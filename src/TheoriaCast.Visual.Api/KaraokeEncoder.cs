@@ -7,7 +7,8 @@ namespace TheoriaCast.Visual.Api;
 
 internal sealed class KaraokeEncoder(IConfiguration configuration, ILogger<KaraokeEncoder> logger)
 {
-    private const string Engine = "theoriacast-karaoke-ass/1";
+    internal const string LegacyEngine = "theoriacast-karaoke-ass/1";
+    private const string Engine = "theoriacast-karaoke-ass/2";
     private readonly string? ffmpeg = configuration["Visual:KaraokeFFmpeg"];
     private readonly string? font = configuration["Visual:KaraokeFont"];
     private readonly string family = configuration["Visual:KaraokeFontFamily"] ?? "Noto Sans JP";
@@ -18,6 +19,15 @@ internal sealed class KaraokeEncoder(IConfiguration configuration, ILogger<Karao
             !Path.IsPathFullyQualified(font ?? "") || !File.Exists(font) ||
             family.Length is < 1 or > 80 || family.Any(c => char.IsControl(c) || c == ','))
             throw new VisualConflict("カラオケ動画用の FFmpeg と日本語フォントを Visual サーバーに設定してください。");
+        try
+        {
+            if (!KaraokeFont.HasFamily(font!, family))
+                throw new VisualConflict("設定したファミリー名が描画フォントに含まれていません。");
+        }
+        catch (IOException)
+        {
+            throw new VisualConflict("描画フォントの名前テーブルを読み込めません。");
+        }
         return (Engine, Digest(ffmpeg!), Digest(font!), family);
     }
 
@@ -29,7 +39,9 @@ internal sealed class KaraokeEncoder(IConfiguration configuration, ILogger<Karao
 
     public async Task<string> Render(string directory, string audio, string extension, KaraokeRecipe recipe, CancellationToken ct)
     {
-        if (Fingerprint() != (recipe.Engine, recipe.FfmpegSha256, recipe.FontSha256, recipe.FontFamily) ||
+        var runtime = Fingerprint();
+        if (recipe.Engine is not (Engine or LegacyEngine) || runtime.Ffmpeg != recipe.FfmpegSha256 ||
+            runtime.Font != recipe.FontSha256 || runtime.Family != recipe.FontFamily ||
             Digest(audio) != recipe.AudioSha256)
             throw new VisualConflict("レシピで固定した音源、FFmpeg、フォントのいずれかが一致しません。");
 
@@ -51,34 +63,67 @@ internal sealed class KaraokeEncoder(IConfiguration configuration, ILogger<Karao
         string[] videoOptions = alpha
             ? ["-c:v", "qtrle", "-pix_fmt", "argb", "-c:a", "pcm_s16le"]
             : ["-c:v", "libx264", "-preset", "ultrafast", "-crf", "18", "-pix_fmt", "yuv420p", "-c:a", "aac", "-b:a", "192k", "-movflags", "+faststart"];
-        string[] arguments = ["-hide_banner", "-loglevel", "error", "-nostdin", "-y", "-filter_threads", "1",
+        // New recipes let the finite color source finish independently of the audio encoder.
+        string[] limit = recipe.Engine == LegacyEngine ? ["-frames:v", recipe.Frames.ToString(CultureInfo.InvariantCulture)] : [];
+        string[] arguments = ["-hide_banner", "-nostats", "-loglevel", "info", "-nostdin", "-y", "-filter_threads", "1",
             "-f", "lavfi", "-i", source, "-f", "wav", "-i", audio, "-map", "0:v:0", "-map", "1:a:0",
             "-vf", "ass=render.ass:fontsdir=fonts:alpha=" + (alpha ? "1" : "0"),
-            "-frames:v", recipe.Frames.ToString(CultureInfo.InvariantCulture), "-map_metadata", "-1",
+            .. limit, "-map_metadata", "-1",
             "-map_chapters", "-1", "-fflags", "+bitexact", "-flags:v", "+bitexact", "-flags:a", "+bitexact",
             "-threads:v", "1", "-threads:a", "1", .. videoOptions, temp];
+        bool fallback = false;
+        await Execute(directory, arguments, null, line =>
+        {
+            if (line.Contains("fontselect:", StringComparison.OrdinalIgnoreCase))
+                logger.LogDebug("Karaoke font selection: {Selection}", line);
+            if (line.Contains("selecting one more font", StringComparison.OrdinalIgnoreCase) ||
+                line.Contains("failed to find any fallback", StringComparison.OrdinalIgnoreCase)) fallback = true;
+        }, ct);
+        if (fallback && recipe.Engine != LegacyEngine)
+            throw new VisualConflict("歌詞に指定フォントで描画できない文字があります。");
+        var check = new KaraokeMediaCheck(recipe);
+        await Execute(directory, ["-v", "error", "-nostdin", "-xerror", "-i", temp, "-map", "0", "-c", "copy",
+            "-f", "framecrc", "-"], check.Read, null, ct);
+        check.Verify();
+        return Path.Combine(directory, temp);
+    }
+
+    private async Task Execute(string directory, string[] arguments, Action<string>? output, Action<string>? diagnostic, CancellationToken ct)
+    {
         var start = new ProcessStartInfo(ffmpeg!) { WorkingDirectory = directory, UseShellExecute = false,
             CreateNoWindow = true, RedirectStandardError = true, RedirectStandardOutput = true };
         foreach (var arg in arguments) start.ArgumentList.Add(arg);
         using var process = Process.Start(start) ?? throw new IOException("FFmpeg could not start.");
-        var error = process.StandardError.ReadToEndAsync(ct);
-        var stdout = process.StandardOutput.ReadToEndAsync(ct);
+        string? last = null;
         try
         {
-            await process.WaitForExitAsync(ct);
-            await stdout;
-            var diagnostic = await error;
+            await Task.WhenAll(Drain(process.StandardOutput, output), Drain(process.StandardError, line =>
+            {
+                last = line;
+                diagnostic?.Invoke(line);
+            }), process.WaitForExitAsync(ct));
             if (process.ExitCode != 0)
             {
-                logger.LogWarning("Karaoke FFmpeg failed with {ExitCode}: {Diagnostic}", process.ExitCode,
-                    diagnostic.Trim()[..Math.Min(800, diagnostic.Trim().Length)]);
-                throw new IOException("FFmpeg could not encode the karaoke video.");
+                logger.LogWarning("Karaoke FFmpeg exited with {ExitCode}: {Diagnostic}", process.ExitCode, last);
+                throw new IOException("FFmpeg could not process the karaoke video.");
             }
         }
         finally
         {
             if (!process.HasExited) { process.Kill(entireProcessTree: true); await process.WaitForExitAsync(); }
         }
-        return Path.Combine(directory, temp);
+
+        async Task Drain(StreamReader reader, Action<string>? consume)
+        {
+            try
+            {
+                while (await reader.ReadLineAsync(ct) is { } line) consume?.Invoke(line);
+            }
+            catch
+            {
+                if (!process.HasExited) process.Kill(entireProcessTree: true);
+                throw;
+            }
+        }
     }
 }

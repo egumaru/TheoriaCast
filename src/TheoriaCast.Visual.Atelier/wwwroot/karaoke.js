@@ -1,19 +1,3 @@
-function readSrt(text) {
-  const clock = "(\\d{2,}:\\d{2}:\\d{2}[,.]\\d{3})";
-  const timing = new RegExp("^" + clock + "\\s+-->\\s+" + clock + "(?:\\s+.*)?$");
-  const seconds = value => {
-    const [h, m, s] = value.replace(",", ".").split(":").map(Number);
-    return h * 3600 + m * 60 + s;
-  };
-  return text.replace(/^\uFEFF/, "").replace(/\r\n?/g, "\n").trim().split(/\n\s*\n/).map(cue => {
-    const lines = cue.split("\n");
-    if (/^\d+$/.test(lines[0].trim())) lines.shift();
-    const match = lines.shift()?.trim().match(timing);
-    if (!match || !lines.length) throw new Error("SRT の時刻と歌詞を確認してください。");
-    return { start: seconds(match[1]), end: seconds(match[2]), text: lines.join("\n") };
-  });
-}
-
 async function stageWav(file, ask) {
   if (file.size <= 0 || file.size > 128 * 1024 * 1024) throw new Error("WAV は128 MiB以内です。");
   const bytes = new Uint8Array(await file.arrayBuffer());
@@ -46,9 +30,10 @@ export function bindKaraoke(form, { ask, action, setMessage, refresh }) {
       const notes = Array.isArray(guide) ? guide : guide.notes;
       if (mode !== "lyrics" && !Array.isArray(notes)) throw new Error("ガイド譜 JSON の notes を確認してください。");
       const raw = await cueFile.text();
-      const cueValue = /\.srt$/i.test(cueFile.name) ? readSrt(raw) : JSON.parse(raw);
-      const lyrics = Array.isArray(cueValue) ? cueValue : cueValue.cues ?? cueValue.provenance?.cues;
-      if (!Array.isArray(lyrics)) throw new Error("歌詞 JSON の cues を確認してください。");
+      const isSrt = /\.srt$/i.test(cueFile.name);
+      const cueValue = isSrt ? null : JSON.parse(raw);
+      const lyrics = Array.isArray(cueValue) ? cueValue : cueValue?.cues ?? cueValue?.provenance?.cues;
+      if (!isSrt && !Array.isArray(lyrics)) throw new Error("歌詞 JSON の cues を確認してください。");
       const more = fields.style.value.trim() ? JSON.parse(fields.style.value) : {};
       if (!more || typeof more !== "object" || Array.isArray(more)) throw new Error("詳細設定は JSON オブジェクトです。");
       const style = { width: fields.width.valueAsNumber, height: fields.height.valueAsNumber,
@@ -56,8 +41,8 @@ export function bindKaraoke(form, { ask, action, setMessage, refresh }) {
         ...(fields.lyrics.value ? { lyrics: fields.lyrics.value } : {}), ...more };
       setMessage("音源を転送中です。");
       const audio = await stageWav(fields.audio.files[0], ask);
-      await ask("/karaoke/jobs", { body: { mode, style, input: { title: fields.title.value, audio, lyrics, notes,
-        trackId: guide.source_track ?? cueValue.id ?? null, bpm: guide.bpm ?? null } } });
+      await ask("/karaoke/jobs", { body: { mode, style, input: { title: fields.title.value, audio, ...(isSrt ? { srt: raw } : { lyrics }), notes,
+        trackId: guide.source_track ?? cueValue?.id ?? null, bpm: guide.bpm ?? null } } });
       setMessage("カラオケ動画の生成を登録しました。");
       await refresh();
     });

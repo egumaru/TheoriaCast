@@ -4,8 +4,8 @@ namespace TheoriaCast.Visual;
 public sealed record KaraokeNote(decimal Start, decimal Duration, int Midi);
 public sealed record KaraokeCue(decimal Start, decimal End, string Text);
 public sealed record KaraokeAudio(string Sha256, string[]? Chunks = null);
-public sealed record KaraokeInput(string Title, KaraokeAudio Audio, KaraokeCue[] Lyrics,
-    KaraokeNote[]? Notes = null, string? TrackId = null, decimal? Bpm = null, int BeatsPerBar = 4);
+public sealed record KaraokeInput(string Title, KaraokeAudio Audio, KaraokeCue[]? Lyrics = null,
+    KaraokeNote[]? Notes = null, string? TrackId = null, decimal? Bpm = null, int BeatsPerBar = 4, string? Srt = null);
 
 public sealed record KaraokeStyle(string? Lyrics = null, int Width = 1920, int Height = 1080, int Fps = 30,
     decimal Scroll = .22m, decimal Head = .34m, int? Lines = null, int LeadMs = 250, int HoldMs = 150,
